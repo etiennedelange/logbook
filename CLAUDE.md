@@ -17,7 +17,8 @@ rerun. Look at the images before committing them. Scenes use `ui/src/dev/mock.ts
 
 ## Releasing
 
-`docs/RELEASING.md`. Never edit a version by hand: `node tools/release/version.mjs`.
+`docs/RELEASING.md`: `pnpm release [version]`, or Actions → Cut release. Add a `CHANGELOG.md` line under
+`[Unreleased]` in the PR for anything a user would notice. Never edit a version by hand: `node tools/release/version.mjs`.
 
 ## Site
 

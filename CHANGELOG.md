@@ -1,0 +1,20 @@
+# Changelog
+
+All notable changes to Logbook. Add an entry under `[Unreleased]` in the same PR as the change;
+`pnpm release` dates the section, and it becomes the top of the GitHub release notes. Newest first. The
+format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [Unreleased]
+
+The first release.
+
+### Added
+- **Keyword search** over session names and full transcripts, with highlighted snippets.
+- **Time ranges**: all sessions, today, the last 7 days or the last 30 days (`1`–`4`).
+- **Repositories**: filter to one repository from the sidebar.
+- **Transcript view** with the session's metadata.
+- **Resume** opens a terminal in the session's folder running `copilot --resume=<id>`, or **Copy**
+  copies the command.
+- **Incremental indexing** into a small cache in your local app data folder: only sessions that changed
+  are scanned again. Logbook re-indexes when its window regains focus, or when you press `r`.
+- **Keyboard**: `/` search, `↑`/`↓` move, `Enter` resume, `Esc` close, `?` about, `Ctrl`+wheel zoom.

@@ -1,0 +1,71 @@
+name: Cut release
+
+# `pnpm release` without your machine: Actions → Cut release → Run workflow, with a version or empty
+# for the next patch. It runs tools/release/ship.mjs: the release PR, auto-merge once CI is green, then
+# the tag, which starts release.yml. See docs/RELEASING.md.
+#
+# Everything is pushed and opened with RELEASE_TOKEN, a fine-grained token of the repo owner (Contents,
+# Pull requests and Issues: read and write). The job's own GITHUB_TOKEN wouldn't do: a PR or tag it
+# creates starts no workflows, so CI would never report and release.yml never run.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version, e.g. 0.2.0 or 0.2.0-beta.1. Empty for the next patch.
+        required: false
+
+permissions:
+  contents: read
+
+# One release at a time; a second run waits instead of racing for the same tag.
+concurrency:
+  group: cut-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # The release PR's CI (Rust on Windows is the slowest) plus the merge; ship.mjs gives up on the
+    # merge ten minutes after CI passes.
+    timeout-minutes: 75
+    steps:
+      - name: Check the token
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          if [ -z "$RELEASE_TOKEN" ]; then
+            echo "::error::The RELEASE_TOKEN secret is not set or has expired (docs/RELEASING.md, Cut a release from GitHub)"
+            exit 1
+          fi
+
+      # The token stays in .git/config on purpose: ship.mjs pushes the release branch and tag with it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked]
+        with:
+          # ship.mjs reads the tags and branches from origin.
+          fetch-depth: 0
+          # git push uses it, so the branch and tag start CI and release.yml.
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: lts/*
+          package-manager-cache: false
+
+      # The release commit is yours, as from `pnpm release`; it's squashed into main anyway.
+      - name: Configure git
+        env:
+          ACTOR: ${{ github.actor }}
+          ACTOR_ID: ${{ github.actor_id }}
+        run: |
+          git config user.name "$ACTOR"
+          git config user.email "$ACTOR_ID+$ACTOR@users.noreply.github.com"
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          args=(--yes --no-follow)
+          if [ -n "$VERSION" ]; then args=("$VERSION" "${args[@]}"); fi
+          node tools/release/ship.mjs "${args[@]}"
