@@ -78,7 +78,7 @@ export function DetailPane() {
         <AboutButton />
         <WindowControls />
       </PaneHeader>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="relative min-h-0 flex-1 overflow-y-auto">
         <Facts session={session} showAgent={multiAgent} />
         {deleted && <DeletedNote session={session} />}
         <Transcript

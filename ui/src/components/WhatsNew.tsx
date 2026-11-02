@@ -84,7 +84,7 @@ export function WhatsNew() {
             </button>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 text-[13px] leading-[1.6] text-soft">
+          <div className="relative min-h-0 flex-1 overflow-y-auto px-5 py-5 text-[13px] leading-[1.6] text-soft">
             {whatsNew.notes ? (
               <Markdown text={whatsNew.notes} tokens={NO_TOKENS} mode={null} />
             ) : (

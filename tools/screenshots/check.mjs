@@ -571,6 +571,23 @@ const SECTIONS = {
         const [sw, cw] = await h1.evaluate((e) => [e.scrollWidth, e.clientWidth]);
         return `title ${sw > cw ? `cut (${cw}/${sw}px)` : 'whole'}`;
       });
+      // Issue #23: screen-reader-only labels (position: absolute) deep in a pane made the page taller
+      // than the window, so scrolling a row or match into view slid the whole app up.
+      await check(`${width}px: the page never scrolls; only the panes do`, async () => {
+        const page = () =>
+          p.evaluate(() => [document.documentElement.scrollHeight - innerHeight, document.scrollingElement.scrollTop]);
+        eq(await page(), [0, 0], 'page overflow, scrollTop on load');
+        await searchBox(p).fill('the');
+        await p.waitForTimeout(400);
+        const n = Math.min(await rows(p).count(), 8);
+        ok(n > 1, 'too few rows to scroll');
+        for (let i = 0; i < n; i++) {
+          await rows(p).nth(i).click();
+          await p.waitForTimeout(150);
+          eq(await page(), [0, 0], `page overflow, scrollTop after row ${i}`);
+        }
+        await searchBox(p).fill('');
+      });
     }
     await check('below 960px the sidebar is an icon rail', async () => {
       const w = await p.locator('aside').evaluate((e) => e.getBoundingClientRect().width);
