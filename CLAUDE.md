@@ -2,6 +2,7 @@
 
 Tauri 2 desktop app (Windows) for searching and resuming GitHub Copilot CLI sessions.
 `core/` Rust engine, `src-tauri/` shell, `ui/` React, `site/` Astro marketing site. See README.md.
+Planned work (more agents, starting with Claude Code) is in `docs/PLAN.md`; update its phase status as work lands.
 
 ## Screenshots
 
