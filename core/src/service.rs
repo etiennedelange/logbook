@@ -6,14 +6,19 @@
 use crate::dto::{SearchHitDto, SessionDto, TimelineEntryDto};
 use crate::index::SessionIndex;
 use crate::indexer::{self, IndexStats};
-use crate::{events_reader, fts_query, paths};
+use crate::models::{Agent, SessionRecord};
+use crate::source::{self, Resume, Source};
+use crate::{fts_query, paths};
 use anyhow::Result;
-use std::path::Path;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+pub use crate::source::is_safe_id;
+
 pub struct SessionService {
     index: RwLock<SessionIndex>,
+    sources: Vec<Box<dyn Source>>,
     /// Stats from the last indexer run, so they can be reported without re-scanning.
     last_stats: RwLock<IndexStats>,
     /// Goes up whenever an indexer run changes the index, so the UI can tell when its copy
@@ -37,6 +42,7 @@ impl SessionService {
     pub fn open() -> Result<Self> {
         Ok(Self {
             index: RwLock::new(SessionIndex::open(&paths::index_cache_path())?),
+            sources: source::all(),
             last_stats: RwLock::new(IndexStats::default()),
             generation: AtomicU64::new(0),
         })
@@ -86,22 +92,41 @@ impl SessionService {
     }
 
     /// `None` for an unknown id, so it reliably reads as "not found" rather than an empty transcript.
-    /// Reads from the indexed session folder, never from a path built out of the id.
     pub fn transcript(&self, id: &str) -> Option<Vec<TimelineEntryDto>> {
-        let session = self.get(id)?;
-        let scan = events_reader::scan(&Path::new(&session.path).join("events.jsonl"));
-        Some(scan.timeline.into_iter().map(TimelineEntryDto::from).collect())
+        let (record, source) = self.session(id)?;
+        let timeline = read(&self.index).kept(id).unwrap_or_else(|| source.transcript(&record));
+        Some(timeline.into_iter().map(TimelineEntryDto::from).collect())
     }
 
+    /// How to resume a session. `None` for an unknown id, or one whose native id isn't safe
+    /// to put on a command line. A session whose source was deleted still has a command (for
+    /// Copy), though the agent can no longer resume it.
+    pub fn resume(&self, id: &str) -> Option<Resume> {
+        let (record, source) = self.session(id)?;
+        source.resume(&record)
+    }
+
+    /// `resume` as one line, for Copy.
     pub fn resume_command(&self, id: &str) -> Option<String> {
-        self.get(id).filter(|_| is_safe_id(id)).map(|_| format!("copilot --resume={id}"))
+        self.resume(id).map(|r| r.command_line())
+    }
+
+    /// Each source's agent and folders, for About.
+    pub fn sources(&self) -> Vec<(Agent, Vec<PathBuf>)> {
+        self.sources.iter().map(|s| (s.agent(), s.roots())).collect()
+    }
+
+    fn session(&self, id: &str) -> Option<(SessionRecord, &dyn Source)> {
+        let record = read(&self.index).get(id)?;
+        let source = self.sources.iter().find(|s| s.agent() == record.agent)?;
+        Some((record, source.as_ref()))
     }
 
     /// Scans a copy of the index, so reads keep being served from the current one while
     /// the scan runs; the write lock is only held to swap the result in.
     pub fn rebuild(&self) -> Result<IndexStats> {
         let mut next = read(&self.index).clone();
-        let stats = indexer::run(&mut next)?;
+        let stats = indexer::run(&mut next, &self.sources)?;
         if stats.changed() {
             *write(&self.index) = next;
             self.generation.fetch_add(1, Ordering::SeqCst);
@@ -109,10 +134,4 @@ impl SessionService {
         *write(&self.last_stats) = stats;
         Ok(stats)
     }
-}
-
-/// Session ids are UUIDs; anything else (from a hand-edited or corrupt `workspace.yaml`)
-/// must never reach a shell command line.
-pub fn is_safe_id(id: &str) -> bool {
-    !id.is_empty() && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }

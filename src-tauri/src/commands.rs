@@ -3,7 +3,8 @@ use std::sync::atomic::Ordering;
 
 use serde::Serialize;
 use logbook_core::dto::{SearchHitDto, SessionDto, TimelineEntryDto};
-use logbook_core::service::is_safe_id;
+use logbook_core::models::Agent;
+use logbook_core::source::Resume;
 use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
 
@@ -45,20 +46,32 @@ pub fn index_status(state: State<'_, AppState>) -> IndexStatus {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SourceInfo {
+    pub agent: Agent,
+    /// Where the agent keeps its sessions. Logbook reads these and never writes to them.
+    pub dir: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AppInfo {
     pub version: String,
-    /// The Copilot CLI's session folders, which Logbook only ever reads.
-    pub sessions_dir: String,
+    pub sources: Vec<SourceInfo>,
     /// Logbook's own index cache: derived, safe to delete.
     pub cache_file: String,
 }
 
 /// What the About panel shows: the version and where Logbook reads and keeps its data.
 #[tauri::command]
-pub fn app_info(app: AppHandle) -> AppInfo {
+pub fn app_info(app: AppHandle, state: State<'_, AppState>) -> AppInfo {
     AppInfo {
         version: app.package_info().version.to_string(),
-        sessions_dir: logbook_core::paths::session_state_root().display().to_string(),
+        sources: state
+            .service
+            .sources()
+            .into_iter()
+            .flat_map(|(agent, roots)| roots.into_iter().map(move |r| SourceInfo { agent, dir: r.display().to_string() }))
+            .collect(),
         cache_file: logbook_core::paths::index_cache_path().display().to_string(),
     }
 }
@@ -98,37 +111,45 @@ pub async fn resume_command(state: State<'_, AppState>, id: String) -> CmdResult
     state.service.resume_command(&id).ok_or_else(|| format!("session {id} not found"))
 }
 
-/// Opens a new terminal in the session's working folder running `copilot --resume=<id>`.
+/// Opens a new terminal in the session's working folder running the agent's resume command.
 #[tauri::command]
 pub async fn resume_session(state: State<'_, AppState>, id: String) -> CmdResult<()> {
     let session = state.service.get(&id).ok_or_else(|| format!("session {id} not found"))?;
-    if !is_safe_id(&id) {
-        return Err(format!("“{id}” isn’t a valid session id, so it can’t be resumed from here"));
+    if session.source_deleted_at.is_some() {
+        return Err("This session’s file was deleted, so it can’t be resumed".into());
     }
-    let cwd = session.cwd.as_deref().filter(|c| Path::new(c).is_dir());
-    launch_terminal(&id, cwd).map_err(err)
+    let resume = state.service.resume(&id).ok_or_else(|| {
+        format!("“{}” isn’t a valid session id, so it can’t be resumed from here", session.native_id)
+    })?;
+    launch_terminal(&resume).map_err(err)
 }
 
 #[cfg(windows)]
-fn launch_terminal(id: &str, cwd: Option<&str>) -> std::io::Result<()> {
+fn launch_terminal(resume: &Resume) -> std::io::Result<()> {
     use std::process::Command;
-    let resume = format!("--resume={id}");
-    let dir = cwd.map(str::to_owned).unwrap_or_else(|| std::env::var("USERPROFILE").unwrap_or_else(|_| ".".into()));
+    let dir = resume
+        .cwd
+        .clone()
+        .filter(|c| Path::new(c).is_dir())
+        .unwrap_or_else(|| std::env::var("USERPROFILE").unwrap_or_else(|_| ".".into()));
+    // Passed as separate arguments, never as one shell string.
+    let command = std::iter::once(resume.program.as_str()).chain(resume.args.iter().map(String::as_str));
 
     // Windows Terminal when installed, otherwise a plain console window.
-    let wt = Command::new("wt.exe").args(["-d", &dir, "cmd", "/k", "copilot", &resume]).spawn();
+    let wt = Command::new("wt.exe").args(["-d", &dir, "cmd", "/k"]).args(command.clone()).spawn();
     if wt.is_ok() {
         return Ok(());
     }
     Command::new("cmd")
-        .args(["/c", "start", "", "cmd", "/k", "copilot", &resume])
+        .args(["/c", "start", "", "cmd", "/k"])
+        .args(command)
         .current_dir(&dir)
         .spawn()
         .map(|_| ())
 }
 
 #[cfg(not(windows))]
-fn launch_terminal(_id: &str, _cwd: Option<&str>) -> std::io::Result<()> {
+fn launch_terminal(_resume: &Resume) -> std::io::Result<()> {
     Err(std::io::Error::other("opening a terminal is only supported on Windows; copy the command instead"))
 }
 

@@ -1,6 +1,6 @@
 ---
 name: logbook-site
-description: Marketing site for Logbook, a Windows app that searches and resumes GitHub Copilot CLI sessions
+description: Marketing site for Logbook, a Windows app that searches and resumes coding-agent sessions from the GitHub Copilot CLI and Claude Code
 colors:
   ground: "#2e3440"
   elevated: "#3b4252"

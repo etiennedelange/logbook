@@ -1,6 +1,7 @@
 ## Logbook
 
-A logbook for your GitHub Copilot CLI sessions: search, browse and resume them from a desktop app.
+A logbook for your coding-agent sessions from the GitHub Copilot CLI and Claude Code: search,
+browse and resume them from a desktop app.
 Built with Tauri 2 (Rust) and React, laid out like
 [DevFlow](../ado-hooks): sidebar, list, detail.
 
@@ -8,17 +9,22 @@ Built with Tauri 2 (Rust) and React, laid out like
 
 - **Keyword search** over session names and full transcripts, with highlighted snippets.
 - **Time ranges**: all sessions, today, last 7 days, last 30 days (`1`–`4`).
+- **Agents**: with sessions from both agents, filter to one from the sidebar (`Alt+1`, `Alt+2`).
 - **Repositories**: filter to one repository from the sidebar.
 - **Transcript view** with session metadata.
-- **Resume**: opens a terminal in the session's folder running `copilot --resume=<id>`
-  (or **Copy** the command).
+- **Resume**: opens a terminal in the session's folder running `copilot --resume=<id>` or
+  `claude --resume <id>` (or **Copy** the command).
 - **Incremental indexing**: a small `postcard` cache in your local app data folder; only
-  sessions whose `events.jsonl` changed get re-scanned. Re-indexes when the window
+  sessions whose files changed get re-scanned. Re-indexes when the window
   regains focus, or press `r`.
+- **Kept copies**: Claude Code deletes transcripts after 30 days (`cleanupPeriodDays`). Logbook
+  keeps its own copy of every conversation it has read, so those sessions stay searchable and
+  readable, marked "source deleted". They can't be resumed.
 - **Updates**: when a new release is out, **Update** appears in the toolbar. **What's New** shows
   its release notes, and **Update now** installs it and restarts.
 
-Keyboard: `/` search · `↑`/`↓` move · `Enter` resume · `Esc` close · `?` about · `Ctrl`+wheel zoom.
+Keyboard: `/` search · `↑`/`↓` move · `Enter` resume · `1`–`4` range · `Alt`+`1`–`2` agent · `Esc` close ·
+`?` about · `Ctrl`+wheel zoom.
 
 ### Download
 
@@ -73,7 +79,8 @@ Optional environment variables (handy for testing against other data):
 | Variable            | Default           | Purpose                                         |
 |---------------------|-------------------|-------------------------------------------------|
 | `COPILOT_HOME`      | `~/.copilot`      | Root of the Copilot CLI's session data          |
-| `LOGBOOK_CACHE_DIR` | OS local data dir | Where this app's own `index-v4.bin` cache lives |
+| `CLAUDE_CONFIG_DIR` | `~/.claude`       | Root of Claude Code's data (`projects/` is read) |
+| `LOGBOOK_CACHE_DIR` | OS local data dir | Where this app's own `index-v5.bin` cache lives |
 
 The app never reads `~/.copilot/session-store.db`; that SQLite file belongs to the
-Copilot CLI itself.
+Copilot CLI itself. It never writes to either agent's folder.

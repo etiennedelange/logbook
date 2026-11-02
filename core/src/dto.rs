@@ -3,13 +3,17 @@
 //! format (camelCase field names, RFC3339 date strings) independent of internal
 //! representations.
 
-use crate::models::{SessionRecord, SessionSearchResult, TimelineEntry};
+use crate::models::{Agent, SessionRecord, SessionSearchResult, TimelineEntry};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionDto {
+    /// `<agent>:<native id>`: what every other command takes.
     pub id: String,
+    pub agent: Agent,
+    /// The agent's own id for the session, as shown to the user.
+    pub native_id: String,
     pub name: Option<String>,
     pub user_named: bool,
     pub cwd: Option<String>,
@@ -22,12 +26,15 @@ pub struct SessionDto {
     pub message_count: i64,
     pub first_prompt: Option<String>,
     pub path: String,
+    pub source_deleted_at: Option<String>,
 }
 
 impl From<SessionRecord> for SessionDto {
     fn from(record: SessionRecord) -> Self {
         Self {
             id: record.id,
+            agent: record.agent,
+            native_id: record.native_id,
             name: record.name,
             user_named: record.user_named,
             cwd: record.cwd,
@@ -40,6 +47,7 @@ impl From<SessionRecord> for SessionDto {
             message_count: record.message_count,
             first_prompt: record.first_prompt,
             path: record.path,
+            source_deleted_at: record.source_deleted_at.map(|d| d.to_rfc3339()),
         }
     }
 }

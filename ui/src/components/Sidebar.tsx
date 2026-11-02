@@ -2,9 +2,11 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { cx } from '../cx';
 import { useNow } from '../hooks/useNow';
-import { RANGES, rangeCounts, repos, type Range } from '../model/select';
+import { AGENT_ROWS, agentInfo, presentAgents, shownAgents } from '../model/agents';
+import { RANGES, agentCounts, rangeCounts, repos, type Range } from '../model/select';
 import { plural, shortRepo } from '../model/format';
 import { useApp } from '../state/store';
+import type { Agent } from '../types';
 import { Icon, type IconName } from './Icon';
 import { SearchBox } from './SearchBox';
 
@@ -14,13 +16,15 @@ const RANGE_ICONS: Record<Range, IconName> = { all: 'sessions', today: 'today', 
 const RAIL_HIDE = 'max-[959px]:sr-only';
 
 export function Sidebar() {
-  const { sessions, range, setRange, repo, setRepo, status, theme, toggleTheme, reindex } = useApp(
+  const { sessions, range, setRange, repo, setRepo, agent, setAgent, status, theme, toggleTheme, reindex } = useApp(
     useShallow((s) => ({
       sessions: s.sessions,
       range: s.range,
       setRange: s.setRange,
       repo: s.repo,
       setRepo: s.setRepo,
+      agent: s.agent,
+      setAgent: s.setAgent,
       status: s.status,
       theme: s.theme,
       toggleTheme: s.toggleTheme,
@@ -32,7 +36,15 @@ export function Sidebar() {
   const today = useMemo(() => new Date(dayKey), [dayKey]);
   const [repoQuery, setRepoQuery] = useState('');
   const counts = useMemo(() => rangeCounts(sessions, today), [sessions, today]);
-  const allRepos = useMemo(() => repos(sessions, range, today), [sessions, range, today]);
+  const allRepos = useMemo(() => repos(sessions, range, today, agent), [sessions, range, today, agent]);
+  const present = useMemo(() => presentAgents(sessions), [sessions]);
+  const [allAgents, setAllAgents] = useState(false);
+  const agents = useMemo(() => {
+    if (present.length < 2) return [];
+    const shown = shownAgents(present, agent, allAgents);
+    return agentCounts(sessions, shown, range, repo, today);
+  }, [sessions, present, agent, allAgents, range, repo, today]);
+  const toggleAgent = useCallback((a: Agent, on: boolean) => setAgent(on ? null : a), [setAgent]);
   const q = repoQuery.trim().toLowerCase();
   const toggleRepo = useCallback((name: string, on: boolean) => setRepo(on ? null : name), [setRepo]);
   const shown = useMemo(() => allRepos.filter((r) => r.name.toLowerCase().includes(q)), [allRepos, q]);
@@ -70,6 +82,39 @@ export function Sidebar() {
           />
         ))}
       </nav>
+
+      {agents.length > 0 && (
+        <nav aria-labelledby="agents-heading" className="flex flex-none flex-col">
+          <h2
+            id="agents-heading"
+            className="px-[18px] pb-[6px] pt-[14px] text-[12px] font-medium text-mute max-[959px]:sr-only"
+          >
+            Agents
+          </h2>
+          <div className="flex flex-col gap-px px-2 max-[959px]:border-t max-[959px]:border-line max-[959px]:pt-2">
+            {agents.map((a) => (
+              <AgentRow
+                key={a.agent}
+                agent={a.agent}
+                count={a.count}
+                hotkey={hotkeyFor(present.indexOf(a.agent))}
+                on={agent === a.agent}
+                onToggle={toggleAgent}
+              />
+            ))}
+            {present.length > AGENT_ROWS && (
+              <button
+                type="button"
+                onClick={() => setAllAgents(!allAgents)}
+                aria-expanded={allAgents}
+                className="rounded-md px-[10px] py-[5px] text-left text-[12px] text-mute hover:bg-hover hover:text-soft max-[959px]:hidden"
+              >
+                {allAgents ? 'Show fewer' : `Show all ${present.length}`}
+              </button>
+            )}
+          </div>
+        </nav>
+      )}
 
       <div className="flex flex-none items-center px-[18px] pb-[6px] pt-[14px] max-[959px]:hidden">
         <h2 className="flex-1 text-[12px] font-medium text-mute">Repositories</h2>
@@ -158,6 +203,37 @@ function NavItem(p: {
     </button>
   );
 }
+
+/** `Alt+1` to `Alt+9`, in sidebar order; agents past the ninth have none. */
+const hotkeyFor = (index: number): string | undefined => (index >= 0 && index < 9 ? `Alt+${index + 1}` : undefined);
+
+/** One agent: its dot, name and count, like a repository row. In the icon rail only the dot shows. */
+const AgentRow = memo(function AgentRow(p: {
+  agent: Agent;
+  count: number;
+  hotkey: string | undefined;
+  on: boolean;
+  onToggle: (agent: Agent, on: boolean) => void;
+}) {
+  const info = agentInfo(p.agent);
+  return (
+    <button
+      type="button"
+      onClick={() => p.onToggle(p.agent, p.on)}
+      aria-pressed={p.on}
+      aria-keyshortcuts={p.hotkey}
+      title={p.hotkey ? `${info.name} (${p.hotkey})` : info.name}
+      className={cx(
+        'flex w-full flex-none items-center gap-2 rounded-md px-[10px] py-[6px] text-left text-[13px] max-[959px]:justify-center max-[959px]:px-0 max-[959px]:py-[9px]',
+        p.on ? 'bg-btn text-ink' : 'text-soft hover:bg-hover',
+      )}
+    >
+      <span className="h-[7px] w-[7px] flex-none rounded-full" style={{ background: info.color }} aria-hidden="true" />
+      <span className={cx('min-w-0 flex-1 truncate', RAIL_HIDE)}>{info.name}</span>
+      <span className={cx('whitespace-nowrap font-mono text-[11px] tabular-nums text-mute', RAIL_HIDE)}>{p.count}</span>
+    </button>
+  );
+});
 
 /** Memoized: picking a repository only re-renders the two rows whose state changes. */
 const RepoRow = memo(function RepoRow(p: {

@@ -1,6 +1,6 @@
 # Plan: more agents, and what comes after
 
-**Date:** 2026-11-02 · **Status:** proposed, nothing started
+**Date:** 2026-11-02 · **Status:** Phases 1–2 built (2026-11-02); Phase 2 awaits a Windows check; Phase 3 next
 
 Logbook reads one agent today: the GitHub Copilot CLI. Its advantage over the CLI's own tools is instant local
 search of every message, combined with repository and date filters and one-key resume, in a native Windows
@@ -24,6 +24,12 @@ Every layer assumes Copilot. The parts that do:
 | `site/`, README | "for your Copilot CLI sessions" throughout |
 
 ## Phase 1: one source behind a trait, no visible change
+
+**Done 2026-11-02.** `core/src/source/` (trait in `mod.rs`, `copilot.rs`). Differences from the sketch:
+`discover` returns `Result` (an unreadable folder fails the run rather than emptying the index), `resume`
+returns `Option` (`None` when `is_safe_id` fails), and a source whose roots are all missing keeps its cached
+sessions, as before. Sessions carry `agent` and `native_id`; the detail pane shows `nativeId`. Checked on a
+synthetic 550-folder history (no real one on the dev machine): same counts and search output as 0.1.1.
 
 Put Copilot behind a `Source` trait in `core/`, so a second agent is one new module:
 
@@ -49,6 +55,25 @@ Done when `cargo test`, `pnpm --dir ui check` and `pnpm --dir ui test` pass unch
 history indexes to the same session count as 0.1.1.
 
 ## Phase 2: Claude Code, end to end
+
+**Built 2026-11-02**, pending the Windows check below. `core/src/source/claude.rs`; kept copies in `index.rs`
+(`Scan::kept`, `retire_missing`); UI per option A; `agents` screenshot scene. Differences from the plan:
+- The repository comes from the session folder's git `origin` (`core/src/git.rs`), in Copilot's form, so both
+  agents share Repositories entries. Claude Code doesn't record one.
+- The detail pane's **Agent** field heads the Folder/Session rows (a fourth top column truncated the dates), and
+  the deleted note says "deleted ... by <date>": Logbook knows when it noticed, not when Claude Code deleted it.
+- The fixture (`core/tests/fixtures/claude/synthetic.jsonl`) is a small hand-written one covering the main
+  cases; more can be added to it later.
+- Claude Code's docs (code.claude.com/docs/en/sessions) list what each picker row shows but not which fields the
+  search matches, and add `Ctrl+W` (all worktrees); the site's table says only that.
+- Agents, labels and the Agent field appear only when two agents have sessions; with one, the UI is unchanged.
+- Built to scale past a handful of agents (changed 2026-11-02): the sidebar lists agents by session count, the
+  top four plus "Show all" (the picked one always shows), and `Alt+1`... follow that order. Rows carry a muted
+  text tag (`copilot`, `claude`) after the message metadata instead of a coloured dot and full name; colour is
+  only a secondary cue on the sidebar dots, since only a few colours stay distinguishable.
+
+Still to check on Windows: both histories show, the agent filter works, and Enter resumes a Claude session in
+its folder (`wt.exe` running `claude --resume <id>`).
 
 **Reading.** Sessions are `~/.claude/projects/<project>/<session-id>.jsonl` (`CLAUDE_CONFIG_DIR` moves
 `~/.claude`; on Windows that's `%USERPROFILE%\.claude`). The folder name is the working path with

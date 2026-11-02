@@ -13,7 +13,12 @@ const D = 24 * H;
 
 let seed: { s: Session; t: TimelineEntry[] }[] = [
   {
-    s: session({ id: '3f1c9a2e-7b44-4d0e-9a51-1c2f0e8b7d10', updatedAt: ago(4), createdAt: ago(70), messageCount: 14 }),
+    s: session({
+      id: 'copilot:3f1c9a2e-7b44-4d0e-9a51-1c2f0e8b7d10',
+      updatedAt: ago(4),
+      createdAt: ago(70),
+      messageCount: 14,
+    }),
     t: [
       entry('user', 'The overdue-loans test fails about one run in five on CI. Can you find out why?', 70),
       entry(
@@ -31,7 +36,7 @@ let seed: { s: Session; t: TimelineEntry[] }[] = [
   },
   {
     s: session({
-      id: '8d2e4b61-1f0a-4c3b-b2d7-5e9a6c4f3a21',
+      id: 'copilot:8d2e4b61-1f0a-4c3b-b2d7-5e9a6c4f3a21',
       name: 'Dashboard env config for staging',
       repository: 'me/reading-list',
       branch: 'main',
@@ -80,7 +85,7 @@ let seed: { s: Session; t: TimelineEntry[] }[] = [
   },
   {
     s: session({
-      id: 'b7a0c3e9-22d4-4e18-8f6b-0d4c1a9e5b32',
+      id: 'copilot:b7a0c3e9-22d4-4e18-8f6b-0d4c1a9e5b32',
       name: null,
       userNamed: false,
       repository: null,
@@ -102,7 +107,7 @@ let seed: { s: Session; t: TimelineEntry[] }[] = [
   },
   {
     s: session({
-      id: 'c41e7d02-9b3a-4f65-a1c8-7e2d5b0f6c43',
+      id: 'copilot:c41e7d02-9b3a-4f65-a1c8-7e2d5b0f6c43',
       name: 'Migrate session search to Tauri',
       repository: 'etienne/logbook',
       branch: 'tauri',
@@ -118,7 +123,7 @@ let seed: { s: Session; t: TimelineEntry[] }[] = [
   },
   {
     s: session({
-      id: 'e5f9a1b3-4c6d-4e8f-9a0b-1c2d3e4f5a54',
+      id: 'copilot:e5f9a1b3-4c6d-4e8f-9a0b-1c2d3e4f5a54',
       name: 'Jira webhook signature check',
       repository: 'etienne/ado-hooks',
       branch: 'feat/jira',
@@ -129,7 +134,101 @@ let seed: { s: Session; t: TimelineEntry[] }[] = [
     }),
     t: [entry('user', 'Verify the webhook HMAC before parsing the body.', 19 * D + 2 * H)],
   },
+  // Claude Code sessions, after the Copilot ones so `sel=<index>` in the screenshot scenes keeps its meaning.
+  {
+    s: claude({
+      id: 'claude:9b2f6e1a-3c4d-4a7b-8e5f-1d2c3b4a5e61',
+      name: 'Split the indexer into sources',
+      repository: 'etienne/logbook',
+      branch: 'feat/sources',
+      cwd: 'D:\\Repos\\Other\\logbook',
+      updatedAt: ago(2 * H),
+      createdAt: ago(4 * H),
+      messageCount: 38,
+    }),
+    t: [
+      entry('user', 'Put Copilot behind a Source trait so a second agent is one new module.', 4 * H),
+      entry(
+        'assistant',
+        'The indexer and service now only see `Source`: `discover` lists sessions with a fingerprint, `read` parses one, and `resume` returns a program and its arguments, never a shell string.',
+        4 * H - 6,
+      ),
+      entry('user', 'Does the session count still match 0.1.1?', 2 * H + 10),
+      entry('assistant', 'Yes: 505 listed on both, and search output is identical.', 2 * H),
+    ],
+  },
+  {
+    s: claude({
+      id: 'claude:2e8a4c6b-7d1f-4b3a-9c5e-6f0a1b2c3d72',
+      name: 'Why is the release job skipping?',
+      repository: 'etienne/logbook',
+      branch: 'main',
+      cwd: 'D:\\Repos\\Other\\logbook',
+      updatedAt: ago(D + 5 * H),
+      createdAt: ago(D + 6 * H),
+      messageCount: 9,
+    }),
+    t: [
+      entry('user', 'The release workflow skips the build job on tags. Why?', D + 6 * H),
+      entry(
+        'assistant',
+        "Its `if:` checks `github.ref == 'refs/heads/main'`, which is never true for a tag push. Use `startsWith(github.ref, 'refs/tags/v')` there.",
+        D + 6 * H - 2,
+      ),
+    ],
+  },
+  {
+    s: claude({
+      id: 'claude:7c3d9e0f-1a2b-4c5d-8e6f-0a1b2c3d4e83',
+      name: 'Cache headers for /docs',
+      repository: 'etienne/site',
+      branch: 'main',
+      cwd: 'D:\\Repos\\Other\\site',
+      updatedAt: ago(9 * D),
+      createdAt: ago(9 * D + H),
+      messageCount: 17,
+    }),
+    t: [
+      entry('user', 'Docs pages are cached for a day after a deploy. Fix the headers.', 9 * D + H),
+      entry('assistant', 'HTML now gets `Cache-Control: no-cache`; hashed assets keep a year and `immutable`.', 9 * D),
+    ],
+  },
+  {
+    s: claude({
+      id: 'claude:4f5a6b7c-8d9e-4f0a-a1b2-c3d4e5f6a794',
+      name: 'Postcard schema bump to v4',
+      repository: 'etienne/logbook',
+      branch: 'main',
+      cwd: 'D:\\Repos\\Other\\logbook',
+      updatedAt: ago(40 * D),
+      createdAt: ago(40 * D + 2 * H),
+      messageCount: 26,
+      sourceDeletedAt: ago(9 * D + 3 * H),
+    }),
+    t: [
+      entry('user', 'postcard has no schema, so bump the cache file name when SessionRecord changes', 40 * D + 2 * H),
+      entry(
+        'assistant',
+        'Renamed the cache to `index-v4.bin` and added a test that fails if the record layout changes without a bump.',
+        40 * D + 2 * H - 1,
+      ),
+    ],
+  },
 ];
+
+/** A Claude Code session: like `session`, with Claude Code's path and no client name. */
+function claude(over: Partial<Session>): Session {
+  const nativeId = over.id!.replace(/^claude:/, '');
+  const project = (over.cwd ?? '').replace(/[^A-Za-z0-9]/g, '-');
+  return session({
+    agent: 'claude',
+    clientName: null,
+    userNamed: false,
+    gitRoot: over.cwd ?? null,
+    path: `C:\\Users\\me\\.claude\\projects\\${project}\\${nativeId}.jsonl`,
+    ...over,
+  });
+}
 
 function ago(min: number): string {
   return new Date(Date.now() - min * 60_000).toISOString();
@@ -165,9 +264,21 @@ function multiply(n: number): void {
   const base = seed;
   seed = Array.from({ length: n }, (_, i) => {
     const { s, t } = base[i % base.length]!;
-    const id = `${String(i).padStart(8, '0')}-0000-4000-8000-${s.id.slice(-12)}`;
+    const nativeId = `${String(i).padStart(8, '0')}-0000-4000-8000-${s.nativeId.slice(-12)}`;
+    const id = `copilot:${nativeId}`;
     const updatedAt = ago(i * ((90 * D) / n));
-    return { s: { ...s, id, repository: `org/repo-${i % 40}`, updatedAt, createdAt: updatedAt }, t };
+    return {
+      s: {
+        ...s,
+        id,
+        nativeId,
+        path: s.path.replace(s.nativeId, nativeId),
+        repository: `org/repo-${i % 40}`,
+        updatedAt,
+        createdAt: updatedAt,
+      },
+      t,
+    };
   });
 }
 
@@ -200,8 +311,11 @@ export function installMock(): void {
         case 'app_info':
           return {
             version: '0.1.0',
-            sessionsDir: 'C:\\Users\\me\\.copilot\\session-state',
-            cacheFile: 'C:\\Users\\me\\AppData\\Local\\Logbook\\index-v4.bin',
+            sources: [
+              { agent: 'copilot', dir: 'C:\\Users\\me\\.copilot\\session-state' },
+              { agent: 'claude', dir: 'C:\\Users\\me\\.claude\\projects' },
+            ],
+            cacheFile: 'C:\\Users\\me\\AppData\\Local\\Logbook\\index-v5.bin',
           };
         case 'index_status':
           return { indexing, total: seed.length, scanned: 0, skipped: seed.length, generation: 1 };
@@ -214,14 +328,20 @@ export function installMock(): void {
           return null;
         case 'recent_sessions':
           if (p.has('loaderror')) throw new Error('The index file is locked by another process.');
-          return seed.map((x) => ({ ...x.s, firstPrompt: x.t.find((e) => e.role === 'user')?.text ?? null }));
+          // Newest first, like the real index.
+          return seed
+            .map((x) => ({ ...x.s, firstPrompt: x.t.find((e) => e.role === 'user')?.text ?? null }))
+            .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
         case 'search_sessions':
           return search(a.q ?? '');
         case 'get_transcript':
           if (p.has('transcripterror')) throw new Error('events.jsonl: unexpected end of file at line 212');
           return find(a.id!)?.t ?? [];
-        case 'resume_command':
-          return `copilot --resume=${a.id}`;
+        case 'resume_command': {
+          const s = find(a.id!)?.s;
+          if (!s) return null;
+          return s.agent === 'claude' ? `claude --resume ${s.nativeId}` : `copilot --resume=${s.nativeId}`;
+        }
         case 'check_update':
           return mockUpdate();
         case 'install_update':
@@ -263,7 +383,7 @@ function mockUpdate() {
   };
 }
 
-/** `?theme=light&range=week&q=dash&sel=<id or index>&about` set up a state directly, for screenshots. */
+/** `?theme=light&range=week&agent=claude&q=dash&sel=<id or index>&about` set up a state directly, for screenshots. */
 async function applyUrlPresets(): Promise<void> {
   const p = new URLSearchParams(location.search);
   const { useApp, applyTheme } = await import('../state/store');
@@ -282,6 +402,8 @@ async function applyUrlPresets(): Promise<void> {
   }
   const range = p.get('range');
   if (range === 'all' || range === 'today' || range === 'week' || range === 'month') useApp.getState().setRange(range);
+  const agent = p.get('agent');
+  if (agent === 'copilot' || agent === 'claude') useApp.getState().setAgent(agent);
   const q = p.get('q');
   if (q) useApp.getState().setQuery(q);
   const sel = p.get('sel');

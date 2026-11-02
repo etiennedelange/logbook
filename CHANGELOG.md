@@ -7,6 +7,13 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Claude Code.** Logbook now reads Claude Code sessions (`~/.claude/projects`) alongside the Copilot
+  CLI's, in one list and one search. With both, an **Agents** group in the sidebar filters to one
+  (`Alt+1`, `Alt+2`), and each row says which agent it's from. **Resume** runs `claude --resume <id>` in
+  the session's folder. Claude Code sessions are filed under the same repository as Copilot ones.
+- **Kept copies.** Claude Code deletes transcripts after 30 days. Logbook keeps its own copy of each
+  conversation, so a deleted session stays searchable and readable, marked "source deleted"; it can't be
+  resumed.
 - **Updates.** Logbook checks GitHub for new releases. When one is out, **Update** appears in the
   toolbar, and **What's New** shows its release notes. **Update now** installs it and restarts Logbook,
   which then shows what changed once. **About → Check for updates** checks right away. Coming from 0.1.1,

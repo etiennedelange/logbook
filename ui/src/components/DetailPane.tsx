@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { cx } from '../cx';
 import {
   clock,
+  dateOnly,
   dateTime,
   dayGroup,
   highlightWords,
@@ -14,6 +15,7 @@ import {
   shortRepo,
   type MatchMode,
 } from '../model/format';
+import { agentInfo, presentAgents } from '../model/agents';
 import { sessionsById } from '../model/select';
 import { useApp } from '../state/store';
 import type { Session, TimelineEntry } from '../types';
@@ -23,6 +25,7 @@ import { Markdown } from './Markdown';
 import { PaneHeader } from './PaneHeader';
 import { UpdatePill } from './UpdatePill';
 import { WindowControls } from './WindowControls';
+import { AgentLabel } from './ListPane';
 import { Shortcuts } from './Shortcuts';
 
 /** Messages longer than this start folded, unless they contain a search match. */
@@ -46,8 +49,12 @@ export function DetailPane() {
   // behind typing and list updates instead of holding them up.
   const searchKey = useDeferredValue(hits ? queryTokens(hitsQuery).join(' ') : '');
 
+  const multiAgent = useMemo(() => presentAgents(sessions).length > 1, [sessions]);
+
   if (!detail || !session) return <NothingSelected />;
 
+  const info = agentInfo(session.agent);
+  const deleted = session.sourceDeletedAt !== null;
   const title = sessionTitle(session);
   const repo = repoOf(session);
   const folder = session.cwd ?? session.gitRoot;
@@ -62,9 +69,14 @@ export function DetailPane() {
       >
         <button
           type="button"
-          title="Open a terminal here running copilot --resume (Enter on the row)"
+          title={
+            deleted
+              ? `${info.name} deleted this session, so it can’t be resumed`
+              : `Open a terminal here running ${info.resume} (Enter on the row)`
+          }
           onClick={() => void resume(session.id)}
-          className="flex flex-none items-center gap-[6px] rounded-md bg-accent px-[11px] py-[5px] text-[12px] font-semibold text-accent-ink hover:brightness-110 active:brightness-95 max-[1099px]:px-[8px]"
+          disabled={deleted}
+          className="flex flex-none items-center gap-[6px] rounded-md bg-accent px-[11px] py-[5px] text-[12px] font-semibold text-accent-ink hover:brightness-110 active:brightness-95 disabled:bg-btn disabled:text-mute disabled:hover:brightness-100 max-[1099px]:px-[8px]"
         >
           <Icon name="terminal" size={13} />
           {/* Below 1100px the session title needs the room; the button keeps its name for screen readers. */}
@@ -77,14 +89,33 @@ export function DetailPane() {
         <WindowControls />
       </PaneHeader>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <Facts session={session} onOpenFolder={folder ? () => void openFolder(folder) : undefined} />
-        <Transcript key={session.id} entries={detail.transcript} error={detail.error} searchKey={searchKey} />
+        <Facts
+          session={session}
+          showAgent={multiAgent}
+          onOpenFolder={folder ? () => void openFolder(folder) : undefined}
+        />
+        {deleted && <DeletedNote session={session} />}
+        <Transcript
+          key={session.id}
+          entries={detail.transcript}
+          error={detail.error}
+          searchKey={searchKey}
+          speaker={info.speaker}
+        />
       </div>
     </section>
   );
 }
 
-function Facts({ session: s, onOpenFolder }: { session: Session; onOpenFolder?: () => void }) {
+function Facts({
+  session: s,
+  showAgent,
+  onOpenFolder,
+}: {
+  session: Session;
+  showAgent: boolean;
+  onOpenFolder?: () => void;
+}) {
   const top = [
     { label: 'Last active', value: dateTime(s.updatedAt) },
     { label: 'Started', value: dateTime(s.createdAt) },
@@ -93,7 +124,7 @@ function Facts({ session: s, onOpenFolder }: { session: Session; onOpenFolder?: 
   const folder = s.cwd ?? s.gitRoot;
   const paths = [
     ...(folder ? [{ label: 'Folder', value: folder, onOpen: onOpenFolder }] : []),
-    { label: 'Session', value: s.id, onOpen: undefined },
+    { label: 'Session', value: s.nativeId, onOpen: undefined },
   ];
 
   return (
@@ -108,6 +139,14 @@ function Facts({ session: s, onOpenFolder }: { session: Session; onOpenFolder?: 
         ))}
       </dl>
       <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-[5px]">
+        {showAgent && (
+          <div className="contents">
+            <dt className="text-[11px] text-mute">Agent</dt>
+            <dd className="m-0 flex text-[12px]">
+              <AgentLabel agent={s.agent} />
+            </dd>
+          </div>
+        )}
         {paths.map((f) => (
           <div key={f.label} className="contents">
             <dt className="text-[11px] text-mute">{f.label}</dt>
@@ -134,13 +173,40 @@ function Facts({ session: s, onOpenFolder }: { session: Session; onOpenFolder?: 
   );
 }
 
+/** Why a session whose file is gone can still be read but not resumed. */
+function DeletedNote({ session: s }: { session: Session }) {
+  const info = agentInfo(s.agent);
+  const when = s.sourceDeletedAt ? dateOnly(s.sourceDeletedAt) : null;
+  return (
+    <div
+      role="note"
+      className="mx-5 mt-4 rounded-md border border-line bg-raised px-3 py-[10px] text-[12.5px] leading-[1.55] text-soft"
+    >
+      <strong className="font-medium text-ink">
+        {info.name} deleted this session’s file{when ? ` by ${when}` : ''}.
+      </strong>{' '}
+      Logbook kept the messages, so you can still find and read them, but the session can’t be resumed.
+      {info.retention && (
+        <>
+          {' '}
+          {info.name} keeps sessions for {info.retention.days} days unless{' '}
+          <code className="font-mono text-[11.5px]">{info.retention.setting}</code> in its settings says otherwise.
+        </>
+      )}
+    </div>
+  );
+}
+
 const Transcript = memo(function Transcript({
   entries,
   error,
   searchKey,
+  speaker,
 }: {
   entries: TimelineEntry[] | null;
   error: string | null;
+  /** How the agent's replies are labelled. */
+  speaker: string;
   /** The search tokens joined by spaces: a string, so it stays equal between renders. */
   searchKey: string;
 }) {
@@ -204,7 +270,7 @@ const Transcript = memo(function Transcript({
                   <span className="h-px flex-1 bg-line-soft" />
                 </div>
               )}
-              <Message entry={e} tokens={tokens} mode={mode} hasHit={hitAt[i]!} />
+              <Message entry={e} tokens={tokens} mode={mode} hasHit={hitAt[i]!} speaker={speaker} />
             </li>
           );
         })}
@@ -222,7 +288,9 @@ const Message = memo(function Message({
   tokens,
   mode,
   hasHit,
+  speaker,
 }: {
+  speaker: string;
   entry: TimelineEntry;
   tokens: string[];
   mode: MatchMode | null;
@@ -238,7 +306,7 @@ const Message = memo(function Message({
     <>
       <div className="flex items-baseline gap-2 text-[11px]">
         <span className={cx('font-semibold', isUser ? 'text-accent-text' : 'text-soft')}>
-          {isUser ? 'You' : 'Copilot'}
+          {isUser ? 'You' : speaker}
         </span>
         {e.timestamp && (
           <time dateTime={e.timestamp} className="font-mono tabular-nums text-mute" title={dateTime(e.timestamp)}>
@@ -310,7 +378,7 @@ function NothingSelected() {
       <div className="grid flex-1 place-items-center px-8">
         <div className="flex w-full max-w-[300px] flex-col gap-4">
           <p className="m-0 text-[13px] leading-[1.55] text-soft">
-            Search across every Copilot CLI conversation, then resume it right where you left off.
+            Search across every Copilot CLI and Claude Code conversation, then resume it right where you left off.
           </p>
           <Shortcuts />
         </div>

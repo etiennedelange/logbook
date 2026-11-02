@@ -4,8 +4,10 @@ import { cx } from '../cx';
 import { onListboxKey, useListRow } from '../hooks/useListRow';
 import { useNow } from '../hooks/useNow';
 import { dayGroup, plural, relTime, sessionTitle, shortRepo } from '../model/format';
+import { agentInfo, presentAgents } from '../model/agents';
 import { RANGES, repoKey, visibleRows, type Row } from '../model/select';
 import { useApp } from '../state/store';
+import type { Session } from '../types';
 import { PaneHeader } from './PaneHeader';
 import { SearchBox } from './SearchBox';
 import { Snippet } from './Snippet';
@@ -28,6 +30,7 @@ export function ListPane() {
       setRepo: s.setRepo,
     })),
   );
+  const { agent, setAgent } = useApp(useShallow((s) => ({ agent: s.agent, setAgent: s.setAgent })));
   const { loaded, error, status, selId, select, resume } = useApp(
     useShallow((s) => ({
       loaded: s.loaded,
@@ -42,17 +45,24 @@ export function ListPane() {
   // Ranges and day groups only change at midnight, not on every tick of the clock.
   const dayKey = now.toDateString();
   const today = useMemo(() => new Date(dayKey), [dayKey]);
-  const rows = useMemo(() => visibleRows(sessions, hits, range, repo, today), [sessions, hits, range, repo, today]);
+  const rows = useMemo(
+    () => visibleRows(sessions, hits, range, repo, today, agent),
+    [sessions, hits, range, repo, today, agent],
+  );
+  // Rows name their agent only when there's more than one and none is picked.
+  const showAgent = useMemo(() => agent === null && presentAgents(sessions).length > 1, [agent, sessions]);
   const selIndex = useMemo(() => rows.findIndex((r) => r.session.id === selId), [rows, selId]);
-  const { shown, sentinel, scroller } = useRowWindow(`${range}|${repo}|${hits ? hitsQuery : ''}`, selIndex);
+  const { shown, sentinel, scroller } = useRowWindow(`${range}|${repo}|${agent}|${hits ? hitsQuery : ''}`, selIndex);
   const groups = useMemo(() => groupByDay(rows.slice(0, shown), today), [rows, shown, today]);
   const rangeLabel = RANGES.find((r) => r.key === range)!.label;
   // The counts describe the results on screen, which trail the search box while a search runs.
   const q = hits ? hitsQuery.trim() : '';
-  const title = repo ? shortRepo(repo) : rangeLabel;
+  const agentName = agent ? agentInfo(agent).name : null;
+  const title = repo ? shortRepo(repo) : (agentName ?? rangeLabel);
   const sub = [
     q ? `${plural(rows.length, 'match', 'matches')} for “${q}”` : plural(rows.length, 'session', 'sessions'),
-    repo ? rangeLabel.toLowerCase() : null,
+    repo ? agentName : null,
+    repo || agent ? (range === 'all' && agent ? null : rangeLabel.toLowerCase()) : null,
   ]
     .filter(Boolean)
     .join(', ');
@@ -103,12 +113,13 @@ export function ListPane() {
               title="No matches"
               body="Every word has to start a word somewhere in the session. Try fewer or shorter words."
               action={
-                range !== 'all' || repo
+                range !== 'all' || repo || agent
                   ? {
                       label: 'Search all sessions',
                       onClick: () => {
                         setRange('all');
                         setRepo(null);
+                        setAgent(null);
                       },
                     }
                   : undefined
@@ -123,7 +134,7 @@ export function ListPane() {
             ) : (
               <Empty
                 title="No sessions yet"
-                body="Sessions from the GitHub Copilot CLI (~/.copilot/session-state) show up here once they’re indexed."
+                body="Sessions from the GitHub Copilot CLI (~/.copilot/session-state) and Claude Code (~/.claude/projects) show up here once they’re indexed."
               />
             )
           ) : (
@@ -143,6 +154,7 @@ export function ListPane() {
                     row={r}
                     now={now}
                     showRepo={repo === null}
+                    showAgent={showAgent}
                     selected={r.session.id === selId}
                     tabbable={r.session.id === firstSelectable}
                     onSelect={select}
@@ -221,6 +233,7 @@ const SessionRow = memo(function SessionRow(p: {
   row: Row;
   now: Date;
   showRepo: boolean;
+  showAgent: boolean;
   selected: boolean;
   tabbable: boolean;
   onSelect: (id: string) => void;
@@ -277,18 +290,55 @@ const SessionRow = memo(function SessionRow(p: {
             </span>
           </>
         )}
-        <span
-          className="ml-auto flex-none font-mono text-[11px] tabular-nums"
-          title={plural(s.messageCount, 'message', 'messages')}
-        >
-          {s.messageCount}
-          <span className="sr-only"> messages</span>
+        {s.sourceDeletedAt && <DeletedTag />}
+        <span className="ml-auto flex flex-none items-center gap-[10px] font-mono text-[11px]">
+          {p.showAgent && <AgentTag agent={s.agent} />}
+          <span className="tabular-nums" title={plural(s.messageCount, 'message', 'messages')}>
+            {s.messageCount}
+            <span className="sr-only"> messages</span>
+          </span>
         </span>
       </div>
       {snippet && <Snippet text={snippet} className="line-clamp-2 text-[12px] leading-[1.5] text-soft" />}
     </div>
   );
 });
+
+/**
+ * Which agent a row is from: its short name, muted, after the repository and branch. Text only, so
+ * it reads the same however many agents there are.
+ */
+function AgentTag({ agent }: { agent: Session['agent'] }) {
+  const info = agentInfo(agent);
+  return (
+    <span title={info.name}>
+      <span aria-hidden="true">{info.short}</span>
+      <span className="sr-only">{info.name}</span>
+    </span>
+  );
+}
+
+/** An agent's dot and name, for the detail pane. */
+export function AgentLabel({ agent, className }: { agent: Session['agent']; className?: string }) {
+  const info = agentInfo(agent);
+  return (
+    <span className={cx('flex flex-none items-center gap-[5px] text-soft', className)}>
+      <span className="h-[6px] w-[6px] flex-none rounded-full" style={{ background: info.color }} aria-hidden="true" />
+      {info.name}
+    </span>
+  );
+}
+
+function DeletedTag() {
+  return (
+    <span
+      title="The agent deleted this session’s file. Logbook kept a copy; it can’t be resumed."
+      className="flex-none whitespace-nowrap rounded border border-line px-[5px] text-[11px] leading-[16px] text-mute"
+    >
+      source deleted
+    </span>
+  );
+}
 
 function ListSkeleton() {
   return (

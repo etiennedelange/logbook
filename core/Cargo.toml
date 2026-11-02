@@ -2,7 +2,7 @@
 name = "logbook-core"
 version = "0.1.1"
 edition = "2021"
-description = "Indexing and search over GitHub Copilot CLI sessions for Logbook"
+description = "Indexing and search over coding-agent sessions (GitHub Copilot CLI, Claude Code) for Logbook"
 
 
 [dependencies]

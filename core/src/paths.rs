@@ -17,6 +17,15 @@ pub fn session_state_root() -> PathBuf {
         .join("session-state")
 }
 
+/// Claude Code's folder of transcripts, one subfolder per project: `~/.claude/projects/`.
+/// `CLAUDE_CONFIG_DIR` moves `~/.claude`, as it does for Claude Code itself.
+pub fn claude_projects_root() -> PathBuf {
+    if let Ok(dir) = std::env::var("CLAUDE_CONFIG_DIR") {
+        return PathBuf::from(dir).join("projects");
+    }
+    dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")).join(".claude").join("projects")
+}
+
 /// Where this tool keeps its own search index, kept separate from Copilot's own data.
 pub fn app_data_dir() -> PathBuf {
     let dir = dirs::data_local_dir()
@@ -28,8 +37,8 @@ pub fn app_data_dir() -> PathBuf {
 
 /// The cache file name. Bump the version whenever `index::Entry` changes shape or the
 /// encoding changes: postcard has no schema, so an old cache must never be read as the new
-/// layout. v4 switched from bincode to postcard.
-const CACHE_FILE: &str = "index-v4.bin";
+/// layout. v4 switched from bincode to postcard; v5 added the agent to each session, and kept transcripts.
+const CACHE_FILE: &str = "index-v5.bin";
 
 /// Path to this tool's own postcard-serialized index cache.
 ///
@@ -44,7 +53,7 @@ pub fn index_cache_path() -> PathBuf {
 
     let dir = app_data_dir();
     // One-time cleanup of earlier cache formats.
-    for stale in ["index.db", "index.db-shm", "index.db-wal", "index.bin", "index-v2.bin", "index-v3.bin"] {
+    for stale in ["index.db", "index.db-shm", "index.db-wal", "index.bin", "index-v2.bin", "index-v3.bin", "index-v4.bin"] {
         let _ = std::fs::remove_file(dir.join(stale));
     }
     dir.join(CACHE_FILE)

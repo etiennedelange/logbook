@@ -38,8 +38,8 @@ const og = `<!doctype html><meta charset="utf-8"><style>
   .brand img{width:44px;height:44px}
   .shot{position:absolute;left:640px;top:96px;width:900px;border:1px solid ${c.border};border-radius:12px;
     box-shadow:0 24px 60px rgba(0,0,0,.4)}
-</style><div class="copy"><h1>Find the Copilot CLI session you half remember</h1>
-<p class="sub">A Windows app for the GitHub Copilot CLI</p></div>
+</style><div class="copy"><h1>Find the agent session you half remember</h1>
+<p class="sub">A Windows app for the GitHub Copilot CLI and Claude Code</p></div>
 <div class="brand"><img src="${icon}">logbook</div><img class="shot" src="${shot}">`;
 
 const browser = await chromium.launch();

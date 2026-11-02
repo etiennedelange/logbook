@@ -18,10 +18,14 @@ export function relTime(iso: string | null, now: Date): string {
 }
 
 /** Full timestamp: "Oct 7, 2026, 14:55". */
+/** A day: "Oct 28, 2026". */
+export const dateOnly = (iso: string): string =>
+  new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
 export function dateTime(iso: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
-  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const date = dateOnly(iso);
   const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   return `${date}, ${time}`;
 }

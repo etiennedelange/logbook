@@ -7,7 +7,7 @@
 //! Read-only on the sessions; the new mode writes its cache to a temp file.
 
 use logbook_core::index::SessionIndex;
-use logbook_core::{events_reader, indexer, paths, yaml_reader};
+use logbook_core::{events_reader, indexer, paths, source, yaml_reader};
 use memchr::memmem;
 use serde_json::Value;
 use std::path::Path;
@@ -69,7 +69,7 @@ fn main() -> anyhow::Result<()> {
         "new" => {
             let cache = std::env::temp_dir().join(format!("bench-index-{}.bin", std::process::id()));
             let mut index = SessionIndex::open(&cache)?;
-            let stats = indexer::run(&mut index)?;
+            let stats = indexer::run(&mut index, &source::all())?;
             eprintln!("new: {:?} {:?}", t.elapsed(), stats);
             let _ = std::fs::remove_file(&cache);
         }

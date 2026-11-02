@@ -35,7 +35,11 @@ beforeEach(() => {
   useApp.setState(useApp.getInitialState(), true);
   vi.mocked(api.recentSessions).mockResolvedValue([]);
   vi.mocked(api.indexStatus).mockResolvedValue({ indexing: false, total: 0, scanned: 0, skipped: 0, generation: 1 });
-  vi.mocked(api.appInfo).mockResolvedValue({ version: '0.1.1', sessionsDir: 'C:\\s', cacheFile: 'C:\\c\\index.bin' });
+  vi.mocked(api.appInfo).mockResolvedValue({
+    version: '0.1.1',
+    sources: [{ agent: 'copilot', dir: 'C:\\s' }],
+    cacheFile: 'C:\\c\\index.bin',
+  });
   vi.mocked(api.checkUpdate).mockResolvedValue(null);
 });
 
@@ -126,7 +130,11 @@ describe('update UI', () => {
   });
 
   it('shows the installed version’s notes once after an update', async () => {
-    vi.mocked(api.appInfo).mockResolvedValue({ version: '0.2.0', sessionsDir: 'C:\\s', cacheFile: 'C:\\c\\i.bin' });
+    vi.mocked(api.appInfo).mockResolvedValue({
+      version: '0.2.0',
+      sources: [{ agent: 'copilot', dir: 'C:\\s' }],
+      cacheFile: 'C:\\c\\i.bin',
+    });
     saveWhatsNew(next);
     render(<App />);
     const dialog = await screen.findByRole('dialog', { name: 'What’s New', hidden: true });

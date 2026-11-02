@@ -30,6 +30,11 @@
   --focus: oklch(0.76 0.12 220);
   --c-fail: oklch(0.7 0.17 25);
   --c-neutral: oklch(0.74 0.01 265);
+  /* Categorical colours, from the brand's chart palette: one per agent. */
+  --cat-1: #4eb9ad;
+  --cat-2: #7bd2f3;
+  --cat-3: #86a4e4;
+  --cat-4: #d1b6f3;
 }
 
 [data-theme='light'] {
@@ -55,6 +60,10 @@
   --focus: oklch(0.5 0.15 230);
   --c-fail: oklch(0.53 0.18 25);
   --c-neutral: oklch(0.48 0.012 265);
+  --cat-1: #368a81;
+  --cat-2: #28667c;
+  --cat-3: #5a78bb;
+  --cat-4: #6c4c8e;
 }
 
 @theme inline {

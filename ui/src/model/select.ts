@@ -1,4 +1,4 @@
-import type { SearchHit, Session } from '../types';
+import type { Agent, SearchHit, Session } from '../types';
 import { repoOf } from './format';
 
 export type Range = 'all' | 'today' | 'week' | 'month';
@@ -74,13 +74,14 @@ export interface Row {
   snippet: string | null;
 }
 
-/** What the list shows: search hits when there is a query, otherwise every session; then the range and repo filters. */
+/** What the list shows: search hits when there is a query, otherwise every session; then the range, repo and agent filters. */
 export function visibleRows(
   sessions: Session[],
   hits: SearchHit[] | null,
   range: Range,
   repo: string | null,
   now: Date,
+  agent: Agent | null = null,
 ): Row[] {
   let rows: Row[];
   if (hits) {
@@ -95,7 +96,10 @@ export function visibleRows(
     rows = sessions.map((session) => ({ session, snippet: null }));
   }
   const ok = rangeTest(range, now);
-  return rows.filter((r) => ok(r.session) && (repo === null || repoKey(r.session) === repo));
+  return rows.filter(
+    (r) =>
+      ok(r.session) && (repo === null || repoKey(r.session) === repo) && (agent === null || r.session.agent === agent),
+  );
 }
 
 export interface RepoCount {
@@ -103,13 +107,13 @@ export interface RepoCount {
   count: number;
 }
 
-/** Repositories in the given range, busiest first. */
-export function repos(sessions: Session[], range: Range, now: Date): RepoCount[] {
+/** Repositories in the given range (and agent, if one is picked), busiest first. */
+export function repos(sessions: Session[], range: Range, now: Date, agent: Agent | null = null): RepoCount[] {
   const counts = new Map<string, number>();
   const ok = rangeTest(range, now);
   for (const s of sessions) {
     const name = repoKey(s);
-    if (name && ok(s)) counts.set(name, (counts.get(name) ?? 0) + 1);
+    if (name && ok(s) && (agent === null || s.agent === agent)) counts.set(name, (counts.get(name) ?? 0) + 1);
   }
   return [...counts]
     .map(([name, count]) => ({ name, count }))
@@ -124,4 +128,26 @@ export function rangeCounts(sessions: Session[], now: Date): Record<Range, numbe
     counts[r.key] = sessions.reduce((n, s) => (ok(s) ? n + 1 : n), 0);
   }
   return counts;
+}
+
+/**
+ * How many sessions each agent has in the range (and repository, if one is picked), in the order
+ * of `present`. Every agent in `present` keeps its row, with 0 when it has none here, so the sidebar
+ * doesn't jump as the other filters change.
+ */
+export function agentCounts(
+  sessions: Session[],
+  present: Agent[],
+  range: Range,
+  repo: string | null,
+  now: Date,
+): { agent: Agent; count: number }[] {
+  const counts = new Map<Agent, number>(present.map((a) => [a, 0]));
+  const ok = rangeTest(range, now);
+  for (const s of sessions) {
+    if (counts.has(s.agent) && ok(s) && (repo === null || repoKey(s) === repo)) {
+      counts.set(s.agent, counts.get(s.agent)! + 1);
+    }
+  }
+  return present.map((agent) => ({ agent, count: counts.get(agent)! }));
 }
