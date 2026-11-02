@@ -1,0 +1,14 @@
+{
+  "features": {
+    "ghcr.io/devcontainers/features/node:2.1.1": {
+      "version": "2.1.1",
+      "resolved": "ghcr.io/devcontainers/features/node@sha256:2a19d3b0b3879437637cfd292eb29fee0afcfbe6364e33db9afc4f80c5c1f956",
+      "integrity": "sha256:2a19d3b0b3879437637cfd292eb29fee0afcfbe6364e33db9afc4f80c5c1f956"
+    },
+    "ghcr.io/etiennedelange/devcontainer-features/dev-setup:1": {
+      "version": "1.1.1",
+      "resolved": "ghcr.io/etiennedelange/devcontainer-features/dev-setup@sha256:367fb88d5e16516d32a3e3a85509529766fa282eb81109f802395c18008f332b",
+      "integrity": "sha256:367fb88d5e16516d32a3e3a85509529766fa282eb81109f802395c18008f332b"
+    }
+  }
+}

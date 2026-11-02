@@ -1,0 +1,513 @@
+---
+import Base from '../layouts/Base.astro';
+import { version } from '../generated/version.json';
+
+const repo = 'https://github.com/etiennedelange/logbook';
+const installer = `${repo}/releases/download/v${version}/Logbook_${version}_x64-setup.exe`;
+
+// The session the hero screenshot has open (ui/src/dev/mock.ts), so the line matches its Folder and Session rows.
+const example = {
+  cwd: 'C:\\Repos\\bookshelf',
+  id: '3f1c9a2e-7b44-4d0e-9a51-1c2f0e8b7d10',
+};
+
+const keys = [
+  ['/', 'search'],
+  ['↑ ↓', 'move'],
+  ['Enter', 'resume'],
+  ['Esc', 'close'],
+  ['1–4', 'time range'],
+  ['r', 're-index'],
+  ['?', 'about'],
+];
+
+// Phone widths get crops of the list pane: the whole window there would shrink its text to ~3px.
+const narrow = '(max-width: 40rem)';
+---
+
+<Base
+  title="Logbook: search and resume your Copilot CLI sessions"
+  description="A Windows desktop app that indexes your GitHub Copilot CLI sessions locally, searches full transcripts and resumes any session in its own folder."
+>
+  <header class="top">
+    <a class="wordmark" href="/">logbook</a>
+    <nav aria-label="Primary">
+      <a href="#how">How it works</a>
+      <a href={repo}>Source</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>Find the Copilot session you half remember.</h1>
+      <p class="lead">
+        Logbook is a Windows app for the GitHub Copilot CLI. It indexes your session history on your own machine,
+        searches every transcript, and resumes the one you pick in its original folder. It never reads the Copilot
+        CLI’s own database and sends nothing anywhere.
+      </p>
+      <div class="cta">
+        <a class="button" href={installer}>Download for Windows</a>
+        <span class="num meta">v{version} · x64 installer</span>
+      </div>
+    </section>
+
+    <section class="shot" aria-labelledby="resume-cap">
+      <figure class="resume">
+        <figcaption id="resume-cap">Enter on a session opens a terminal in its folder, running:</figcaption>
+        <pre><code><span class="prompt">{example.cwd}&gt;</span>copilot --resume={example.id}</code></pre>
+      </figure>
+      <picture>
+        <source srcset="/screenshots/browse-narrow-dark.webp" media={`${narrow} and (prefers-color-scheme: dark)`} width="766" height="924" />
+        <source srcset="/screenshots/browse-narrow-light.webp" media={narrow} width="766" height="924" />
+        <source srcset="/screenshots/browse-dark.webp" media="(prefers-color-scheme: dark)" />
+        <img
+          src="/screenshots/browse-light.webp"
+          width="2360"
+          height="1520"
+          alt="Logbook with a session open: a sidebar of time ranges and repositories, a list of sessions, and the transcript with a Resume button."
+          fetchpriority="high"
+        />
+      </picture>
+    </section>
+
+    <section class="features" aria-label="Features">
+      <ul>
+        <li>
+          <span class="artifact"><kbd>/</kbd></span>
+          <div>
+            <h3>Search transcripts, not just titles</h3>
+            <p>
+              Word-prefix search over session names, repositories and every message, with the matching snippet shown
+              in the list and highlighted in the transcript.
+            </p>
+          </div>
+        </li>
+        <li>
+          <span class="artifact"><kbd>Enter</kbd></span>
+          <div>
+            <h3>Resume in the right folder</h3>
+            <p>
+              Opens a terminal in the session’s working folder running <code>copilot --resume=&lt;id&gt;</code>. Copy
+              gives you the same command.
+            </p>
+          </div>
+        </li>
+        <li>
+          <span class="artifact"><kbd>1–4</kbd></span>
+          <div>
+            <h3>Ranges and repositories</h3>
+            <p>All sessions, today, the last 7 days or the last 30 days. Click a repository in the sidebar to narrow to it.</p>
+          </div>
+        </li>
+        <li>
+          <span class="artifact"><code>events.jsonl</code></span>
+          <div>
+            <h3>Indexes only what changed</h3>
+            <p>
+              A small local cache keeps what it has read. Only sessions whose <code>events.jsonl</code> changed are
+              scanned again, when the window regains focus or on <kbd>r</kbd>.
+            </p>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <section class="search" aria-labelledby="s">
+      <div class="search-text">
+        <h2 id="s">Search lands on the message</h2>
+        <p>
+          Type a word and the list narrows to sessions that contain it. Open one and the transcript shows only the
+          messages that match, so a half-remembered question leads you straight to the answer.
+        </p>
+      </div>
+      <figure class="demo" data-demo>
+        <picture>
+          <source srcset="/screenshots/search-narrow-dark.webp" media={`${narrow} and (prefers-color-scheme: dark)`} width="766" height="480" />
+          <source srcset="/screenshots/search-narrow-light.webp" media={narrow} width="766" height="480" />
+          <source srcset="/screenshots/search-detail-dark.webp" media="(prefers-color-scheme: dark)" />
+          <img
+            src="/screenshots/search-detail-light.webp"
+            width="1920"
+            height="1040"
+            alt="Searching for “reminder”: one matching session with the snippet in the list, and the matching messages highlighted in the transcript."
+            loading="lazy"
+          />
+        </picture>
+        <video muted playsinline preload="none" width="1920" height="1040" aria-hidden="true" hidden></video>
+        <button class="replay" type="button" hidden>Replay</button>
+      </figure>
+    </section>
+
+    <section id="how" class="how" aria-labelledby="h">
+      <h2 id="h">How it works</h2>
+      <p>
+        Logbook reads each session’s <code>events.jsonl</code> under the Copilot CLI’s session folder
+        (<code>~/.copilot</code>, or <code>COPILOT_HOME</code>) and builds its own index in your local app data
+        folder. The Copilot CLI’s <code>session-store.db</code> is never opened.
+      </p>
+      <p>
+        The index is a small <code>bincode</code> file, so start-up is a read, not a scan. The core is Rust and
+        the window is the system WebView, via Tauri 2.
+      </p>
+      <h3>Keyboard</h3>
+      <dl class="keys">
+        {
+          keys.map(([k, v]) => (
+            <div>
+              <dt class="num">{k}</dt>
+              <dd>{v}</dd>
+            </div>
+          ))
+        }
+      </dl>
+    </section>
+  </main>
+
+  <footer>
+    <span>Logbook <span class="num">v{version}</span></span>
+    <a href={`${repo}/releases`}>All releases</a>
+    <a href={repo}>Source</a>
+  </footer>
+</Base>
+
+<script>
+  // Plays the recorded search (docs/screenshots/search-clip-*.webm) once, when it scrolls into view.
+  // The still under it stays for phones, reduced motion and no-JS. Under five seconds, so it needs
+  // no pause control; Replay runs it again.
+  const fig = document.querySelector<HTMLElement>('[data-demo]');
+  const video = fig?.querySelector('video');
+  const replay = fig?.querySelector<HTMLButtonElement>('.replay');
+  const allowed =
+    matchMedia('(min-width: 40.0625rem)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (fig && video && replay && allowed && 'IntersectionObserver' in window) {
+    const ground = document.documentElement.dataset.ground;
+    const dark = ground ? ground === 'nord' : matchMedia('(prefers-color-scheme: dark)').matches;
+    const play = () => void video.play().catch(() => {});
+
+    // Load and swap in the clip before it's on screen, so the switch from the still isn't seen.
+    const load = () => {
+      if (video.src) return;
+      video.src = `/screenshots/search-clip-${dark ? 'dark' : 'light'}.webm`;
+      video.preload = 'auto';
+      video.addEventListener('loadeddata', () => fig.classList.add('playing'), { once: true });
+      video.hidden = false;
+    };
+    const near = new IntersectionObserver(
+      ([e]) => {
+        if (!e?.isIntersecting) return;
+        near.disconnect();
+        load();
+      },
+      { rootMargin: '0px 0px 50% 0px' },
+    );
+    // A jump straight to it (a link, a fast scroll) lands here before the clip has loaded: wait for it.
+    const inView = new IntersectionObserver(
+      ([e]) => {
+        if (!e?.isIntersecting) return;
+        inView.disconnect();
+        load();
+        if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) play();
+        else video.addEventListener('canplay', play, { once: true });
+      },
+      { threshold: 0.6 },
+    );
+    video.addEventListener('ended', () => (replay.hidden = false));
+    replay.addEventListener('click', () => {
+      replay.hidden = true;
+      video.currentTime = 0;
+      play();
+    });
+    near.observe(fig);
+    inView.observe(fig);
+  }
+</script>
+
+<style>
+  :global(body) {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+  }
+  a {
+    color: var(--signal);
+  }
+  .top,
+  main,
+  footer {
+    width: min(72rem, 100% - 2rem);
+    margin-inline: auto;
+  }
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-block: 1.25rem;
+  }
+  .top .wordmark {
+    color: var(--fg);
+    text-decoration: none;
+    font-size: var(--text-h3);
+  }
+  nav {
+    display: flex;
+    gap: 1.5rem;
+    font-weight: var(--weight-ui);
+  }
+  nav a {
+    color: var(--fg-muted);
+    text-decoration: none;
+  }
+  nav a:hover {
+    color: var(--fg);
+    text-decoration: underline;
+  }
+  .hero {
+    padding-block: clamp(2rem, 6vw, 5rem) 2rem;
+  }
+  h1 {
+    font-size: var(--text-h1);
+    font-weight: var(--weight-heading);
+    line-height: var(--leading-heading);
+    letter-spacing: var(--tracking-heading);
+    margin: 0 0 1.25rem;
+    max-width: 20ch;
+    text-wrap: balance;
+  }
+  h2 {
+    font-size: var(--text-h2);
+    font-weight: var(--weight-heading);
+    line-height: var(--leading-heading);
+    letter-spacing: var(--tracking-heading);
+    margin: 0 0 1rem;
+  }
+  h3 {
+    font-size: var(--text-h3);
+    font-weight: var(--weight-heading);
+    line-height: var(--leading-heading);
+    margin: 0 0 0.5rem;
+  }
+  .lead {
+    font-size: var(--text-lead);
+    color: var(--fg-muted);
+    margin: 0 0 2rem;
+    max-width: 62ch;
+    text-wrap: pretty;
+  }
+  .cta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+  }
+  .button {
+    display: inline-block;
+    padding: 0.7rem 1.25rem;
+    border-radius: var(--radius-md);
+    background: var(--signal);
+    color: var(--on-signal);
+    font-weight: var(--weight-ui);
+    text-decoration: none;
+    transition: filter var(--motion-fast) var(--motion-ease);
+  }
+  .button:hover {
+    filter: brightness(1.08);
+  }
+  .button:active {
+    filter: brightness(0.95);
+  }
+  .meta {
+    color: var(--fg-subtle);
+    font-size: var(--text-small);
+  }
+  /* The command Enter runs, sitting on the screenshot it belongs to. */
+  .shot {
+    margin-block: 1rem 4.5rem;
+  }
+  .resume {
+    margin: 0 0 1rem;
+  }
+  .resume figcaption {
+    color: var(--fg-subtle);
+    font-size: var(--text-small);
+    margin-bottom: 0.4rem;
+  }
+  .resume pre {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: var(--text-small);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .resume code {
+    background: none;
+    padding: 0;
+    font-size: inherit;
+  }
+  .prompt {
+    color: var(--fg-subtle);
+  }
+  .shot img,
+  .demo img,
+  .demo video {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  /* Crops of the window carry no frame of their own; the whole-window shots have it drawn in. */
+  .demo img,
+  .demo video {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+  @media (max-width: 40rem) {
+    .shot img {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+    }
+  }
+
+  .features {
+    margin-bottom: 4.5rem;
+  }
+  .features ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .features li {
+    display: grid;
+    grid-template-columns: 10rem minmax(0, 1fr);
+    gap: 0.5rem 2rem;
+    padding-block: 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+  .features h3 {
+    margin-bottom: 0.25rem;
+  }
+  .features p {
+    margin: 0;
+    max-width: 62ch;
+    color: var(--fg-muted);
+  }
+  .features p code {
+    white-space: nowrap;
+  }
+  .artifact {
+    padding-top: 0.2rem;
+    color: var(--fg-muted);
+    font-size: var(--text-small);
+  }
+  .artifact kbd,
+  .artifact code {
+    background: none;
+    padding: 0;
+    font-size: inherit;
+  }
+  @media (max-width: 40rem) {
+    .features li {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .search {
+    margin-bottom: 4.5rem;
+  }
+  .search-text {
+    max-width: 44rem;
+    margin-bottom: 1.5rem;
+  }
+  .search-text p {
+    margin: 0;
+    color: var(--fg-muted);
+    text-wrap: pretty;
+  }
+  .demo {
+    position: relative;
+    margin: 0;
+  }
+  .demo video {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+  }
+  .demo.playing video {
+    opacity: 1;
+  }
+  /* Under the clip's corner, not over it: the clip ends on the text it's showing. */
+  .replay {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.5rem);
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-elevated);
+    color: var(--fg);
+    font: inherit;
+    font-size: var(--text-small);
+    font-weight: var(--weight-ui);
+    cursor: pointer;
+  }
+  .replay:hover {
+    background: var(--bg-highlight);
+  }
+  .replay[hidden] {
+    display: none;
+  }
+
+  .how {
+    max-width: 44rem;
+    margin-bottom: 4rem;
+  }
+  .how p {
+    color: var(--fg-muted);
+    text-wrap: pretty;
+  }
+  code,
+  kbd {
+    font-size: 0.9em;
+    background: var(--bg-highlight);
+    padding: 0.1em 0.35em;
+  }
+  .keys {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    gap: 0.75rem 1.5rem;
+    margin: 1rem 0 0;
+  }
+  .keys div {
+    display: flex;
+    gap: 0.75rem;
+    align-items: baseline;
+  }
+  dt {
+    min-width: 3.5rem;
+    font-weight: 700;
+  }
+  dd {
+    margin: 0;
+    color: var(--fg-muted);
+  }
+  footer {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    padding-block: 2rem;
+    border-top: 1px solid var(--border);
+    color: var(--fg-subtle);
+    font-size: var(--text-small);
+  }
+  footer span {
+    margin-right: auto;
+  }
+  footer a {
+    color: var(--fg-muted);
+  }
+</style>

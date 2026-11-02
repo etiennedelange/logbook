@@ -1,0 +1,12 @@
+{
+  "name": "logbook-screenshots",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "screenshots": "node capture.mjs",
+    "site-assets": "node site-assets.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.1"
+  }
+}

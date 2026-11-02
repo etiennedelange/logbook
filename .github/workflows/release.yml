@@ -1,0 +1,71 @@
+name: Release
+
+# Push a tag like v0.2.0 (see docs/RELEASING.md). The Windows installer is built and attached to a
+# DRAFT GitHub release with generated notes. Publishing the draft is the human step: it makes the
+# download link live and triggers the site deploy.
+on:
+  push:
+    tags: ['v*']
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: lts/*
+          package-manager-cache: false
+      # The tag, package.json, tauri.conf.json, both Cargo.tomls and Cargo.lock must all agree,
+      # or the installer would be named for one version and the tag say another.
+      - name: Tag matches every version field
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node tools/release/version.mjs --check "$TAG"
+
+  windows:
+    needs: verify
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write # create the draft release and upload the installer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.16.1
+      # No caches here: the installer ships, so it's built from a clean slate rather than from a cache
+      # something else could have written (zizmor: cache-poisoning). Slower, and releases are rare.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: lts/*
+          package-manager-cache: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+      # Only the app's workspace packages; the site and screenshot tool aren't part of the installer.
+      - run: pnpm install --frozen-lockfile --filter logbook-ui --filter .
+      # beforeBuildCommand (tauri.conf.json) runs the UI's check + build.
+      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: pnpm tauri
+          tagName: ${{ github.ref_name }}
+          releaseName: Logbook ${{ github.ref_name }}
+          releaseDraft: true
+          generateReleaseNotes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

@@ -1,0 +1,39 @@
+{
+	"name": "Logbook",
+	"image": "mcr.microsoft.com/devcontainers/rust:2-1-trixie",
+	"features": {
+		"ghcr.io/etiennedelange/devcontainer-features/dev-setup:1": {
+			"wrangler": true
+		},
+		"ghcr.io/devcontainers/features/node:2.1.1": {
+			"version": "26"
+		}
+	},
+
+	"postCreateCommand": "bash .devcontainer/post-create.sh",
+
+	// Persist the cargo cache in a per-container Docker volume across
+	// rebuilds. (OpenCode's state volume comes from dev-setup.)
+	"mounts": [
+		{
+			"source": "devcontainer-cargo-cache-${devcontainerId}",
+			"target": "/usr/local/cargo",
+			"type": "volume"
+		}
+	],
+
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	// "features": {},
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// 1420: the Tauri app's Vite dev server (`pnpm dev` at the repo root).
+	// 4322: the Astro marketing site's dev server (`pnpm dev` in site/).
+	// 8976: `wrangler login`'s OAuth callback.
+	"forwardPorts": [1420, 4322, 8976],
+
+	// Configure tool-specific properties.
+	// "customizations": {},
+
+	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "root"
+}

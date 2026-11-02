@@ -1,0 +1,7 @@
+[workspace]
+resolver = "2"
+members = ["core", "src-tauri"]
+
+# Line tables keep file:line in backtraces but make debug builds link much faster.
+[profile.dev]
+debug = "line-tables-only"

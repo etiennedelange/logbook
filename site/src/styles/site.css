@@ -1,0 +1,10 @@
+/* Site-specific overrides on top of the generated brand.css (don't edit that file by hand).
+   This site doesn't use the brand's lemon mark or the Stamp register, so the pieces of
+   brand.css that draw them are switched off here. */
+::selection {
+  background: var(--selection);
+  color: inherit;
+}
+.wordmark::after {
+  content: none;
+}

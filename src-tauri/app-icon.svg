@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#6d28d9"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#tile)"/>
+  <g transform="translate(256 254) scale(1.14) translate(-256 -254)">
+  <!-- Pages, peeking out under the cover -->
+  <rect x="150" y="112" width="232" height="300" rx="26" fill="#ddd6fe"/>
+  <!-- Cover -->
+  <rect x="130" y="96" width="232" height="300" rx="26" fill="#faf8ff"/>
+  <!-- Spine -->
+  <path d="M156 96h22v300h-22a26 26 0 0 1-26-26V122a26 26 0 0 1 26-26z" fill="#c4b5fd"/>
+  <!-- Bookmark ribbon -->
+  <path d="M300 96h40v104l-20-16-20 16z" fill="#f59e0b"/>
+  <!-- Prompt on the cover -->
+  <polyline points="214,226 258,258 214,290" fill="none" stroke="#6d28d9" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="276" y1="290" x2="324" y2="290" stroke="#6d28d9" stroke-width="24" stroke-linecap="round"/>
+  </g>
+</svg>

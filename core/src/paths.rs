@@ -1,0 +1,50 @@
+use dirs;
+use std::path::PathBuf;
+
+/// Root folder holding one subdirectory per Copilot CLI session:
+/// `~/.copilot/session-state/{id}/`.
+///
+/// Honors a `COPILOT_HOME` environment variable override (pointing at the
+/// `.copilot`-equivalent folder itself) so tests and Docker packaging can point at a
+/// temp directory instead of the real `~/.copilot`.
+pub fn session_state_root() -> PathBuf {
+    if let Ok(home) = std::env::var("COPILOT_HOME") {
+        return PathBuf::from(home).join("session-state");
+    }
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".copilot")
+        .join("session-state")
+}
+
+/// Where this tool keeps its own search index, kept separate from Copilot's own data.
+pub fn app_data_dir() -> PathBuf {
+    let dir = dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("Logbook");
+    std::fs::create_dir_all(&dir).ok();
+    dir
+}
+
+/// The cache file name. Bump the version whenever `index::Entry` changes shape: bincode
+/// has no schema, so an old cache must never be read as the new layout.
+const CACHE_FILE: &str = "index-v3.bin";
+
+/// Path to this tool's own bincode-serialized index cache.
+///
+/// Honors a `LOGBOOK_CACHE_DIR` environment variable override so tests and
+/// packaging can point at a temp directory instead of the real app data dir.
+pub fn index_cache_path() -> PathBuf {
+    if let Ok(dir) = std::env::var("LOGBOOK_CACHE_DIR") {
+        let dir = PathBuf::from(dir);
+        std::fs::create_dir_all(&dir).ok();
+        return dir.join(CACHE_FILE);
+    }
+
+    let dir = app_data_dir();
+    // One-time cleanup of earlier cache formats.
+    for stale in ["index.db", "index.db-shm", "index.db-wal", "index.bin", "index-v2.bin"] {
+        let _ = std::fs::remove_file(dir.join(stale));
+    }
+    dir.join(CACHE_FILE)
+}

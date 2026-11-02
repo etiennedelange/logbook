@@ -1,0 +1,14 @@
+{
+  "name": "logbook",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "tauri": "tauri",
+    "mock:web": "pnpm --dir ui dev:mock",
+    "screenshots": "pnpm --dir tools/screenshots screenshots",
+    "site-assets": "pnpm --dir tools/screenshots site-assets"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.2"
+  }
+}
