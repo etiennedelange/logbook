@@ -6,6 +6,8 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-02
+
 ### Added
 - **Claude Code.** Logbook now reads Claude Code sessions (`~/.claude/projects`) alongside the Copilot
   CLI's, in one list and one search. With both, an **Agents** group in the sidebar filters to one
