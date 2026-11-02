@@ -51,27 +51,20 @@ export function DetailPane() {
   const title = sessionTitle(session);
   const repo = repoOf(session);
   const folder = session.cwd ?? session.gitRoot;
+  const where = [repo && shortRepo(repo), session.branch].filter(Boolean).join(' · ');
 
   return (
     <section aria-label="Session" data-pane="detail" className="flex min-h-0 min-w-0 flex-col">
-      <PaneHeader
-        title={title.text}
-        sub={[repo && shortRepo(repo), session.branch].filter(Boolean).join(' · ') || 'No repository'}
-        subTitle={[repo, session.branch].filter(Boolean).join(' · ') || undefined}
-        className="px-5"
-      >
-        <button
-          type="button"
-          title="Open a terminal here running copilot --resume (Enter on the row)"
-          onClick={() => void resume(session.id)}
-          className="flex flex-none items-center gap-[6px] rounded-md bg-accent px-[11px] py-[5px] text-[12px] font-semibold text-accent-ink hover:brightness-110 active:brightness-95"
-        >
-          <Icon name="terminal" size={13} />
-          Resume
-        </button>
-        <IconAction icon="copy" label="Copy resume command" onClick={() => void copyResume(session.id)} />
-        {folder && <IconAction icon="folder" label={`Open ${folder}`} onClick={() => void openFolder(folder)} />}
-        <span className="mx-[2px] h-4 w-px flex-none bg-line" aria-hidden="true" />
+      <PaneHeader title={title.text} className="pl-5 pr-3">
+        {where && (
+          <span
+            data-tauri-drag-region
+            title={[repo, session.branch].filter(Boolean).join(' · ')}
+            className="max-w-[40%] flex-none truncate rounded-full bg-raised px-[10px] py-[3px] font-mono text-[11px] text-soft"
+          >
+            {where}
+          </span>
+        )}
         <UpdatePill />
         <AboutButton />
         <WindowControls />
@@ -79,6 +72,33 @@ export function DetailPane() {
       <div className="min-h-0 flex-1 overflow-y-auto">
         <Facts session={session} />
         <Transcript key={session.id} entries={detail.transcript} error={detail.error} searchKey={searchKey} />
+      </div>
+      {/* The resume dock: what Resume will run and where, with the action beside it. */}
+      <div className="flex-none px-5 pb-4 pt-2">
+        <div className="mx-auto flex max-w-[760px] items-center gap-2 rounded-[16px] border border-line bg-raised py-[7px] pl-4 pr-[7px]">
+          <code
+            className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-mute"
+            title={`${folder ? `${folder} › ` : ''}copilot --resume=${session.id}`}
+          >
+            {folder && (
+              <>
+                {folder} <span aria-hidden="true">›</span>{' '}
+              </>
+            )}
+            <span className="text-soft">copilot --resume={session.id}</span>
+          </code>
+          <IconAction icon="copy" label="Copy resume command" onClick={() => void copyResume(session.id)} />
+          {folder && <IconAction icon="folder" label={`Open ${folder}`} onClick={() => void openFolder(folder)} />}
+          <button
+            type="button"
+            title="Open a terminal here running copilot --resume (Enter on the row)"
+            onClick={() => void resume(session.id)}
+            className="flex h-8 flex-none items-center gap-[6px] rounded-full bg-accent px-[14px] text-[12.5px] font-semibold text-accent-ink hover:brightness-110 active:brightness-95"
+          >
+            <Icon name="terminal" size={13} />
+            Resume
+          </button>
+        </div>
       </div>
     </section>
   );
@@ -218,10 +238,9 @@ const Message = memo(function Message({
 
   return (
     <>
-      <div className="flex items-baseline gap-2 text-[11px]">
-        <span className={cx('font-semibold', isUser ? 'text-accent-text' : 'text-soft')}>
-          {isUser ? 'You' : 'Copilot'}
-        </span>
+      {/* Your messages are bubbles on the right, Copilot's plain text on the left, so "You" goes unsaid. */}
+      <div className={cx('flex items-baseline gap-2 text-[11px]', isUser && 'justify-end')}>
+        <span className={cx('font-semibold text-soft', isUser && 'sr-only')}>{isUser ? 'You' : 'Copilot'}</span>
         {e.timestamp && (
           <time dateTime={e.timestamp} className="font-mono tabular-nums text-mute" title={dateTime(e.timestamp)}>
             {clock(e.timestamp)}
@@ -231,7 +250,7 @@ const Message = memo(function Message({
       <div
         className={cx(
           'min-w-0 break-words text-[13.5px] leading-[1.6]',
-          isUser ? 'rounded-lg bg-sel px-[14px] py-[10px] text-ink' : 'text-soft',
+          isUser ? 'max-w-[85%] self-end rounded-[18px] bg-sel px-4 py-[10px] text-ink' : 'text-soft',
         )}
       >
         {/* Messages without a match render unmarked, so a new search leaves them alone. */}
@@ -241,7 +260,10 @@ const Message = memo(function Message({
         <button
           type="button"
           onClick={() => setOverride(!open)}
-          className="self-start rounded-md px-[6px] py-[2px] text-[12px] font-medium text-accent-text hover:bg-hover"
+          className={cx(
+            'rounded-md px-[6px] py-[2px] text-[12px] font-medium text-accent-text hover:bg-hover',
+            isUser ? 'self-end' : 'self-start',
+          )}
         >
           {open ? 'Show less' : `Show full message (${Math.round(e.text.length / 1000)}k characters)`}
         </button>
@@ -274,7 +296,7 @@ function IconAction(p: { icon: IconName; label: string; onClick: () => void }) {
       title={p.label}
       aria-label={p.label}
       onClick={p.onClick}
-      className="grid h-[28px] w-[28px] flex-none place-items-center rounded-md bg-btn text-soft hover:bg-btn-hover hover:text-ink"
+      className="grid h-8 w-8 flex-none place-items-center rounded-full border border-line text-soft hover:bg-btn-hover hover:text-ink"
     >
       <Icon name={p.icon} size={14} />
     </button>

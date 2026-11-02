@@ -44,20 +44,19 @@ export function Sidebar() {
       : `${plural(status.total, 'session', 'sessions')} indexed`;
 
   return (
-    <aside className="flex min-h-0 flex-col border-r border-line bg-side">
+    <aside className="flex min-h-0 flex-col bg-side">
       <div
         data-tauri-drag-region
-        className="flex h-[60px] flex-none items-center gap-[10px] border-b border-line px-[14px] max-[959px]:justify-center max-[959px]:px-0"
+        className="flex h-[60px] flex-none items-center gap-[9px] px-[18px] max-[959px]:justify-center max-[959px]:px-0"
       >
-        <span className="pointer-events-none grid h-[26px] w-[26px] flex-none place-items-center rounded-[7px] bg-accent text-accent-ink">
-          <Icon name="logbook" size={15} />
-        </span>
-        <span data-tauri-drag-region className={cx('truncate text-[14px] font-semibold tracking-[-0.01em]', RAIL_HIDE)}>
-          Logbook
+        <Icon name="logbook" size={19} className="pointer-events-none flex-none text-accent-text" />
+        {/* The wordmark is lowercase; the name in prose stays "Logbook". */}
+        <span data-tauri-drag-region className={cx('truncate text-[16px] font-semibold tracking-[-0.02em]', RAIL_HIDE)}>
+          logbook
         </span>
       </div>
 
-      <nav aria-label="Time range" className="flex flex-none flex-col gap-[2px] px-2 pb-2 pt-3">
+      <nav aria-label="Time range" className="flex flex-none flex-col gap-[2px] px-2 pb-2 pt-1">
         {RANGES.map(({ key, label, hotkey }) => (
           <NavItem
             key={key}
@@ -77,7 +76,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => setRepo(null)}
-            className="rounded-md px-[6px] text-[12px] leading-[18px] text-mute hover:bg-btn hover:text-soft"
+            className="rounded-md px-[6px] text-[12px] leading-[18px] text-mute hover:bg-side-hover hover:text-soft"
           >
             Clear<span className="sr-only"> repository filter</span>
           </button>
@@ -106,13 +105,9 @@ export function Sidebar() {
         )}
       </div>
 
-      <footer className="flex flex-none items-center gap-2 border-t border-line px-[14px] py-3 max-[959px]:flex-col max-[959px]:px-2">
-        <span
-          className={cx('h-[6px] w-[6px] flex-none rounded-full', indexing && 'animate-pulse')}
-          style={{ background: indexing ? 'var(--accent)' : status ? 'var(--ok)' : 'var(--mute)' }}
-          title={statusText}
-        />
-        <span role="status" className={cx('min-w-0 flex-1 truncate text-[11px] leading-[1.35] text-mute', RAIL_HIDE)}>
+      {/* No visible index status: the spinning re-index button says it's working. Screen readers still hear it. */}
+      <footer className="flex flex-none items-center justify-end gap-1 px-[10px] py-[10px] max-[959px]:flex-col max-[959px]:px-2">
+        <span role="status" className="sr-only">
           {statusText}
         </span>
         <IconButton label="Re-index sessions (r)" onClick={() => void reindex()} disabled={indexing}>
@@ -142,17 +137,11 @@ function NavItem(p: {
       aria-keyshortcuts={p.hotkey}
       title={`${p.label} (${p.hotkey})`}
       className={cx(
-        'relative flex w-full items-center gap-[9px] rounded-md px-[10px] py-[7px] text-left text-[13px] font-medium max-[959px]:justify-center max-[959px]:px-0 max-[959px]:py-[9px]',
-        p.on ? 'bg-btn text-ink' : 'text-soft hover:bg-hover',
+        'flex w-full items-center gap-[9px] rounded-lg px-[10px] py-[7px] text-left text-[13px] font-medium max-[959px]:justify-center max-[959px]:px-0 max-[959px]:py-[9px]',
+        p.on ? 'bg-side-sel text-ink' : 'text-soft hover:bg-side-hover',
       )}
     >
-      <span
-        className={cx(
-          '-ml-[6px] h-[14px] w-[3px] rounded-sm max-[959px]:absolute max-[959px]:left-0 max-[959px]:ml-0',
-          p.on ? 'bg-accent' : 'bg-transparent',
-        )}
-      />
-      <Icon name={p.icon} size={15} className={cx('flex-none', p.on ? 'text-accent-text' : 'text-mute')} />
+      <Icon name={p.icon} size={15} className={cx('flex-none', p.on ? 'text-ink' : 'text-mute')} />
       <span className={cx('flex-1', RAIL_HIDE)}>{p.label}</span>
       <span className={cx('font-mono text-[11px] tabular-nums text-mute', RAIL_HIDE)}>{p.count}</span>
     </button>
@@ -173,14 +162,11 @@ const RepoRow = memo(function RepoRow(p: {
       aria-pressed={p.on}
       title={p.name}
       className={cx(
-        'flex w-full flex-none items-center gap-2 rounded-md px-[10px] py-[6px] text-left text-[13px]',
-        p.on ? 'bg-btn text-ink' : 'text-soft hover:bg-hover',
+        'flex w-full flex-none items-center gap-[9px] rounded-lg px-[10px] py-[6px] text-left text-[13px]',
+        p.on ? 'bg-side-sel text-ink' : 'text-soft hover:bg-side-hover',
       )}
     >
-      <span
-        className={cx('h-[6px] w-[6px] flex-none rounded-full', p.on ? 'bg-accent' : 'bg-line')}
-        aria-hidden="true"
-      />
+      <Icon name="folder" size={15} className={cx('flex-none', p.on ? 'text-ink' : 'text-mute')} />
       <span className="min-w-0 flex-1 truncate">{shortRepo(p.name)}</span>
       <span className="whitespace-nowrap font-mono text-[11px] tabular-nums text-mute">{p.count}</span>
     </button>
@@ -195,7 +181,7 @@ function IconButton(p: { label: string; onClick: () => void; disabled?: boolean;
       aria-label={p.label}
       onClick={p.onClick}
       disabled={p.disabled}
-      className="grid h-7 w-7 flex-none place-items-center rounded-md text-mute hover:bg-btn hover:text-soft disabled:pointer-events-none"
+      className="grid h-7 w-7 flex-none place-items-center rounded-md text-mute hover:bg-side-hover hover:text-soft disabled:pointer-events-none"
     >
       {p.children}
     </button>

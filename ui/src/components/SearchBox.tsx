@@ -37,7 +37,7 @@ export function SearchBox({
         title={searchable ? `${label} (/)` : label}
         spellCheck={false}
         autoComplete="off"
-        className="w-full rounded-md border border-line bg-transparent py-[4px] pl-[9px] pr-[24px] text-[12px] text-ink outline-none placeholder:text-mute focus:border-accent [&::-webkit-search-cancel-button]:hidden"
+        className="w-full rounded-lg border border-line bg-bg py-[6px] pl-[10px] pr-[26px] text-[12.5px] text-ink outline-none placeholder:text-mute focus:border-accent [&::-webkit-search-cancel-button]:hidden"
       />
       {value && (
         <button
