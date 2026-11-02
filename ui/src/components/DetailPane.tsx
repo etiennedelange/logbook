@@ -51,7 +51,8 @@ export function DetailPane() {
   const title = sessionTitle(session);
   const repo = repoOf(session);
   const folder = session.cwd ?? session.gitRoot;
-  const where = [repo && shortRepo(repo), session.branch].filter(Boolean).join(' · ');
+  // The branch alone: the repository is already in the list row and the folder below.
+  const where = session.branch ?? (repo ? shortRepo(repo) : '');
 
   return (
     <section aria-label="Session" data-pane="detail" className="flex min-h-0 min-w-0 flex-col">
