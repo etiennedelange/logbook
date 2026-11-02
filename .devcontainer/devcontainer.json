@@ -27,9 +27,9 @@
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// 1420: the Tauri app's Vite dev server (`pnpm dev` at the repo root).
-	// 4322: the Astro marketing site's dev server (`pnpm dev` in site/).
+	// 4321: the Astro marketing site's dev server (`pnpm dev` in site/).
 	// 8976: `wrangler login`'s OAuth callback.
-	"forwardPorts": [1420, 4322, 8976],
+	"forwardPorts": [1420, 4321, 8976],
 
 	// Configure tool-specific properties.
 	// "customizations": {},
