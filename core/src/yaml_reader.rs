@@ -1,4 +1,4 @@
-use crate::models::SessionRecord;
+use crate::models::{Agent, SessionRecord};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::path::Path;
@@ -38,14 +38,16 @@ pub fn try_read(session_dir: &Path) -> Option<SessionRecord> {
     // The folder name is the session's identity: the indexer matches sessions to folders by it,
     // so trusting a `workspace.yaml` whose `id` disagrees would make the session vanish from the
     // index and get re-read on every scan. The yaml `id` is only a fallback.
-    let id = session_dir
+    let native_id = session_dir
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .filter(|n| !n.is_empty())
         .or_else(|| get("id"))?;
 
     Some(SessionRecord {
-        id,
+        id: Agent::Copilot.session_id(&native_id),
+        agent: Agent::Copilot,
+        native_id,
         name: get("name"),
         user_named: map.get("user_named").map(|v| v == "true").unwrap_or(false),
         cwd: get("cwd"),
@@ -58,6 +60,7 @@ pub fn try_read(session_dir: &Path) -> Option<SessionRecord> {
         message_count: 0,
         first_prompt: None,
         path: session_dir.to_string_lossy().into_owned(),
+        source_deleted_at: None,
     })
 }
 

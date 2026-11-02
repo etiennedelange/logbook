@@ -6,6 +6,7 @@ import { ListPane } from './components/ListPane';
 import { Notice } from './components/Notice';
 import { Sidebar } from './components/Sidebar';
 import { WhatsNew } from './components/WhatsNew';
+import { presentAgents } from './model/agents';
 import { RANGES } from './model/select';
 import { useApp } from './state/store';
 import { scheduleUpdateChecks, takeWhatsNew } from './update';
@@ -92,10 +93,21 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
       const s = useApp.getState();
       // The dialogs are modal: they close themselves on Esc, and nothing behind them reacts.
       if (s.about || s.whatsNew) return;
+      // Alt+1, Alt+2, ... pick an agent in sidebar order (again to clear it). Alt types nothing, so
+      // this works in the search box too.
+      if (e.altKey && !e.metaKey && !e.ctrlKey && /^[1-9]$/.test(e.key)) {
+        const present = presentAgents(s.sessions);
+        const agent = present[Number(e.key) - 1];
+        if (agent && present.length > 1) {
+          e.preventDefault();
+          s.setAgent(s.agent === agent ? null : agent);
+        }
+        return;
+      }
+      if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === '?') {
         s.setAbout(true);
         return;

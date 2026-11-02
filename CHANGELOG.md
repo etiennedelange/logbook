@@ -6,6 +6,22 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Claude Code.** Logbook now reads Claude Code sessions (`~/.claude/projects`) alongside the Copilot
+  CLI's, in one list and one search. With both, an **Agents** group in the sidebar filters to one
+  (`Alt+1`, `Alt+2`), and each row says which agent it's from. **Resume** runs `claude --resume <id>` in
+  the session's folder. Claude Code sessions are filed under the same repository as Copilot ones.
+- **Kept copies.** Claude Code deletes transcripts after 30 days. Logbook keeps its own copy of each
+  conversation, so a deleted session stays searchable and readable, marked "source deleted"; it can't be
+  resumed.
+
+### Fixed
+- **The window's close button stays visible on hover.** It turned white on a clear background, so it
+  vanished under the pointer in the light theme.
+- **Session titles have more room.** The open-folder button moved next to the folder path, and in a narrow
+  window **Resume** shrinks to its icon, so the title is cut short less often. The dates under it no
+  longer get cut off either.
+
 ## [0.2.0] - 2026-11-02
 
 ### Added

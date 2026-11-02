@@ -1,4 +1,6 @@
-use crate::models::{SessionRecord, SessionSearchResult};
+use crate::models::{Agent, SessionRecord, SessionSearchResult, TimelineEntry};
+use crate::source::{kept_text, Fingerprint};
+use chrono::{DateTime, Utc};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -9,20 +11,39 @@ use std::sync::Arc;
 
 /// A cached, parsed session plus enough fingerprint info to know whether it needs
 /// re-scanning next run.
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone)]
 struct Entry {
     record: SessionRecord,
     searchable_text: String,
     fingerprint: Fingerprint,
+    /// Logbook's own copy of the transcript, for sources whose agent deletes its files.
+    kept: Option<Vec<TimelineEntry>>,
 }
 
-/// What a session's files looked like when it was last scanned. `workspace.yaml` is part of
-/// it because Copilot rewrites it (e.g. on rename) without touching `events.jsonl`.
-#[derive(Serialize, Deserialize, Clone, Default, PartialEq, Eq, Debug)]
-pub struct Fingerprint {
-    pub events_mtime_ms: u128,
-    pub events_size: u64,
-    pub yaml_mtime_ms: u128,
+/// An `Entry` as written to the cache. A kept transcript already holds the searchable text, so
+/// the text is left empty and rebuilt from it on load (`kept_text`).
+#[derive(Serialize)]
+struct StoredRef<'a> {
+    record: &'a SessionRecord,
+    searchable_text: &'a str,
+    fingerprint: &'a Fingerprint,
+    kept: Option<&'a [TimelineEntry]>,
+}
+
+/// `StoredRef`, read back. Postcard encodes both the same way.
+#[derive(Deserialize)]
+struct Stored {
+    record: SessionRecord,
+    searchable_text: String,
+    fingerprint: Fingerprint,
+    kept: Option<Vec<TimelineEntry>>,
+}
+
+impl From<Stored> for Entry {
+    fn from(s: Stored) -> Self {
+        let searchable_text = s.kept.as_deref().map_or(s.searchable_text, kept_text);
+        Self { record: s.record, searchable_text, fingerprint: s.fingerprint, kept: s.kept }
+    }
 }
 
 /// An `Entry` with its header and transcript already split into words, so a search never
@@ -39,9 +60,9 @@ impl Indexed {
     }
 }
 
-/// An in-memory index over all Copilot CLI sessions, persisted to a flat `postcard`
-/// cache file. Rebuilt incrementally: a session is only re-scanned when its
-/// `events.jsonl` has changed size/timestamp since the last run. At the personal-scale
+/// An in-memory index over every agent's sessions, persisted to a flat `postcard`
+/// cache file. Rebuilt incrementally: a session is only re-scanned when its files'
+/// sizes or timestamps have changed since the last run (see `Fingerprint`). At the personal-scale
 /// data sizes involved (about a thousand sessions, tens of MB of transcript text),
 /// matching against each session's pre-split words (see `Words`) takes a few
 /// milliseconds, so no database or search engine is needed.
@@ -56,8 +77,11 @@ impl SessionIndex {
     pub fn open(cache_path: &Path) -> Result<Self> {
         let list = std::fs::read(cache_path)
             .ok()
-            .and_then(|bytes| postcard::from_bytes::<Vec<Entry>>(&bytes).ok())
-            .unwrap_or_default();
+            .and_then(|bytes| postcard::from_bytes::<Vec<Stored>>(&bytes).ok())
+            .unwrap_or_default()
+            .into_iter()
+            .map(Entry::from)
+            .collect();
         let entries = index_all(list).into_iter().map(|e| (e.entry.record.id.clone(), Arc::new(e))).collect();
 
         Ok(Self { path: cache_path.to_path_buf(), entries })
@@ -66,7 +90,19 @@ impl SessionIndex {
     /// Persists the current in-memory index to disk. Writes a temp file and renames it over
     /// the cache, so a crash mid-write can't leave a truncated cache behind.
     pub fn flush(&self) -> Result<()> {
-        let list: Vec<&Entry> = self.entries.values().map(|e| &e.entry).collect();
+        let list: Vec<StoredRef> = self
+            .entries
+            .values()
+            .map(|e| {
+                let e = &e.entry;
+                StoredRef {
+                    record: &e.record,
+                    searchable_text: if e.kept.is_some() { "" } else { &e.searchable_text },
+                    fingerprint: &e.fingerprint,
+                    kept: e.kept.as_deref(),
+                }
+            })
+            .collect();
         let bytes = postcard::to_stdvec(&list)?;
         let tmp = self.path.with_extension("tmp");
         std::fs::write(&tmp, bytes)?;
@@ -78,17 +114,52 @@ impl SessionIndex {
         self.entries.get(id).map(|e| &e.entry.fingerprint)
     }
 
-    pub fn upsert(&mut self, record: SessionRecord, searchable_text: String, fingerprint: Fingerprint) {
+    pub fn upsert(
+        &mut self,
+        record: SessionRecord,
+        searchable_text: String,
+        fingerprint: Fingerprint,
+        kept: Option<Vec<TimelineEntry>>,
+    ) {
         let id = record.id.clone();
-        let entry = Entry { record, searchable_text, fingerprint };
+        let entry = Entry { record, searchable_text, fingerprint, kept };
         self.entries.insert(id, Arc::new(Indexed::new(entry)));
     }
 
-    /// Drops sessions from the index whose folders no longer exist on disk; returns how many.
-    pub fn remove_missing(&mut self, existing_ids: &HashSet<String>) -> usize {
+    /// Logbook's kept copy of a session's transcript, if it has one.
+    pub fn kept(&self, id: &str) -> Option<Vec<TimelineEntry>> {
+        self.entries.get(id).and_then(|e| e.entry.kept.clone())
+    }
+
+    /// Deals with sessions that are no longer on disk, leaving alone those of the agents in
+    /// `unavailable` (whose folders weren't there to look in). A session with a kept transcript
+    /// and messages stays, marked as deleted at `now` the first time; any other is dropped.
+    /// Returns how many were dropped and how many newly marked.
+    pub fn retire_missing(
+        &mut self,
+        existing_ids: &HashSet<String>,
+        unavailable: &[Agent],
+        now: DateTime<Utc>,
+    ) -> (usize, usize) {
         let before = self.entries.len();
-        self.entries.retain(|id, _| existing_ids.contains(id));
-        before - self.entries.len()
+        let mut marked = 0;
+        self.entries.retain(|id, e| {
+            let r = &e.entry.record;
+            if existing_ids.contains(id) || unavailable.contains(&r.agent) {
+                return true;
+            }
+            if e.entry.kept.is_none() || r.message_count == 0 {
+                return false;
+            }
+            if r.source_deleted_at.is_none() {
+                let mut entry = e.entry.clone();
+                entry.record.source_deleted_at = Some(now);
+                *e = Arc::new(Indexed::new(entry));
+                marked += 1;
+            }
+            true
+        });
+        (before - self.entries.len(), marked)
     }
 
     pub fn len(&self) -> usize {
@@ -370,11 +441,14 @@ fn build_snippet(e: &Indexed, tokens: &[String], rank: Rank, phrase_at: Option<u
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::source::FileStamp;
     use chrono::{TimeZone, Utc};
 
     fn record(id: &str, name: &str, day: u32) -> SessionRecord {
         SessionRecord {
             id: id.into(),
+            agent: Agent::Copilot,
+            native_id: id.into(),
             name: Some(name.into()),
             user_named: false,
             cwd: None,
@@ -387,13 +461,14 @@ mod tests {
             message_count: 1,
             first_prompt: None,
             path: String::new(),
+            source_deleted_at: None,
         }
     }
 
     fn index(sessions: &[(&str, &str, u32, &str)]) -> SessionIndex {
         let mut idx = SessionIndex::open(Path::new("does-not-exist/index.bin")).unwrap();
         for (id, name, day, text) in sessions {
-            idx.upsert(record(id, name, *day), text.to_string(), Fingerprint::default());
+            idx.upsert(record(id, name, *day), text.to_string(), Fingerprint::default(), None);
         }
         idx
     }
@@ -472,7 +547,7 @@ mod tests {
         let mut idx = index(&[("used", "Backend work", 1, "some text")]);
         let mut empty = record("empty", "Backend idle", 2);
         empty.message_count = 0;
-        idx.upsert(empty, String::new(), Fingerprint::default());
+        idx.upsert(empty, String::new(), Fingerprint::default(), None);
         assert_eq!(idx.all(10).iter().map(|r| r.id.as_str()).collect::<Vec<_>>(), ["used"]);
         assert_eq!(ids(&idx.search(&toks("backend"), false, 10)), ["used"]);
         assert_eq!(idx.listed_count(), 1);
@@ -482,7 +557,7 @@ mod tests {
     #[test]
     fn get_and_upsert_replace_in_place() {
         let mut idx = index(&[("s", "old", 1, "first version")]);
-        idx.upsert(record("s", "new", 2), "second version".into(), Fingerprint::default());
+        idx.upsert(record("s", "new", 2), "second version".into(), Fingerprint::default(), None);
         assert_eq!(idx.len(), 1);
         assert_eq!(idx.get("s").unwrap().name.as_deref(), Some("new"));
         assert!(idx.search(&toks("first"), false, 10).is_empty());
@@ -494,10 +569,18 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("logbook-cache-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("index.bin");
-        let fp = Fingerprint { events_mtime_ms: u128::MAX - 1, events_size: 4096, yaml_mtime_ms: 1_700_000_000_000 };
+        let fp = Fingerprint(vec![
+            FileStamp { path: "C:\\s\\events.jsonl".into(), size: 4096, mtime_ms: u128::MAX - 1 },
+            FileStamp { path: "C:\\s\\workspace.yaml".into(), size: 120, mtime_ms: 1_700_000_000_000 },
+        ]);
 
         let mut idx = SessionIndex::open(&path).unwrap();
-        idx.upsert(record("s", "Loans report", 3), "overdue reminder queue".into(), fp.clone());
+        idx.upsert(record("s", "Loans report", 3), "overdue reminder queue".into(), fp.clone(), None);
+        let kept = vec![
+            TimelineEntry { role: "user".into(), timestamp: None, text: "where is the parser".into() },
+            TimelineEntry { role: "assistant".into(), timestamp: None, text: "in src/parse.rs".into() },
+        ];
+        idx.upsert(record("k", "Kept one", 2), kept_text(&kept), Fingerprint::default(), Some(kept.clone()));
         idx.flush().unwrap();
 
         let reopened = SessionIndex::open(&path).unwrap();
@@ -505,5 +588,26 @@ mod tests {
         assert_eq!(reopened.fingerprint("s"), Some(&fp));
         assert_eq!(reopened.get("s").unwrap().updated_at, record("s", "", 3).updated_at);
         assert_eq!(ids(&reopened.search(&toks("reminder"), false, 10)), ["s"]);
+        // A kept transcript is stored once and its searchable text rebuilt from it.
+        assert_eq!(reopened.kept("k"), Some(kept));
+        assert_eq!(ids(&reopened.search(&toks("parse rs"), false, 10)), ["k"]);
+        assert_eq!(reopened.kept("s"), None);
+    }
+
+    #[test]
+    fn missing_sessions_are_dropped_unless_kept() {
+        let mut idx = index(&[("gone", "a", 1, "x"), ("here", "b", 1, "y")]);
+        let kept = vec![TimelineEntry { role: "user".into(), timestamp: None, text: "hello".into() }];
+        idx.upsert(record("kept", "c", 1), kept_text(&kept), Fingerprint::default(), Some(kept));
+        let present: HashSet<String> = ["here".to_string()].into();
+        let now = Utc.with_ymd_and_hms(2026, 11, 2, 9, 0, 0).unwrap();
+
+        assert_eq!(idx.retire_missing(&present, &[], now), (1, 1));
+        assert!(idx.get("gone").is_none());
+        assert_eq!(idx.get("kept").unwrap().source_deleted_at, Some(now));
+        // Marked once: a later run keeps the first time and reports nothing new.
+        assert_eq!(idx.retire_missing(&present, &[], now + chrono::Duration::days(1)), (0, 0));
+        assert_eq!(idx.get("kept").unwrap().source_deleted_at, Some(now));
+        assert_eq!(ids(&idx.search(&toks("hello"), false, 10)), ["kept"]);
     }
 }

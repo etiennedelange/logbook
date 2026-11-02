@@ -1,6 +1,14 @@
+/** `logbook_core::models::Agent`. */
+export type Agent = 'copilot' | 'claude';
+
 /** Mirrors `logbook_core::dto::SessionDto` (camelCase, RFC3339 dates). */
 export interface Session {
+  /** `<agent>:<native id>`: what every command takes. */
   id: string;
+  /** Which coding agent wrote the session (`logbook_core::models::Agent`). */
+  agent: Agent;
+  /** The agent's own id for the session, as shown to the user. */
+  nativeId: string;
   name: string | null;
   userNamed: boolean;
   cwd: string | null;
@@ -14,6 +22,11 @@ export interface Session {
   /** First user message, whitespace-collapsed and cut to 200 characters. */
   firstPrompt: string | null;
   path: string;
+  /**
+   * RFC 3339. When Logbook found the session's file deleted by its agent. The session is then
+   * read from Logbook's kept copy and can't be resumed.
+   */
+  sourceDeletedAt: string | null;
 }
 
 /**
@@ -34,8 +47,8 @@ export interface TimelineEntry {
 /** What the About panel shows (`commands::AppInfo`). */
 export interface AppInfo {
   version: string;
-  /** The Copilot CLI's session folders, which Logbook only reads. */
-  sessionsDir: string;
+  /** Each agent's session folder, which Logbook reads and never writes to. */
+  sources: { agent: Agent; dir: string }[];
   /** Logbook's own index cache. */
   cacheFile: string;
 }

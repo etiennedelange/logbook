@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { api } from '../api';
+import { AGENTS, agentInfo } from '../model/agents';
 import { useApp } from '../state/store';
 import type { AppInfo } from '../types';
 import { Icon } from './Icon';
@@ -63,7 +64,7 @@ export function About() {
             About Logbook
           </h1>
           <span className="flex items-center gap-2 text-[12px] text-mute">
-            {info ? `Version ${info.version}` : 'Your Copilot CLI sessions'}
+            {info ? `Version ${info.version}` : 'Your coding-agent sessions'}
             {info && (
               <button
                 type="button"
@@ -92,21 +93,29 @@ export function About() {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6 pt-5">
         <p className="m-0 text-[13.5px] leading-[1.6] text-ink">
-          Logbook keeps a searchable record of your GitHub Copilot CLI sessions, so you can find an old conversation and
-          pick it up right where you left off.
+          Logbook keeps a searchable record of your coding-agent sessions from the GitHub Copilot CLI and Claude Code,
+          so you can find an old conversation and pick it up right where you left off.
         </p>
 
         <Section title="Where sessions come from">
           <p className="m-0">
-            Every time you use the Copilot CLI it saves the session in its own folder: its name, the folder and
-            repository you were in, and the whole conversation. Logbook reads those folders. It never changes or deletes
-            anything in them, and nothing leaves your machine.
+            Each agent saves every session on your machine: the folder and repository you were in, and the whole
+            conversation. Logbook reads those folders. It never changes or deletes anything in them, and nothing leaves
+            your machine.
           </p>
-          <Path
-            label="Sessions"
-            value={info?.sessionsDir ?? '~/.copilot/session-state'}
-            onOpen={info ? () => void openFolder(info.sessionsDir) : undefined}
-          />
+          {(info?.sources ?? AGENTS.map((a) => ({ agent: a.key, dir: a.home }))).map((s) => (
+            <Path
+              key={s.agent}
+              label={agentInfo(s.agent).name}
+              value={s.dir}
+              onOpen={info ? () => void openFolder(s.dir) : undefined}
+            />
+          ))}
+          <p className="m-0">
+            Claude Code deletes sessions after 30 days (its <Code>cleanupPeriodDays</Code> setting). Logbook keeps its
+            own copy of each conversation, so a deleted session stays searchable and readable here, marked “source
+            deleted”. It just can’t be resumed.
+          </p>
         </Section>
 
         <Section title="Staying up to date">
@@ -117,7 +126,7 @@ export function About() {
           </p>
           <Path
             label="Index"
-            value={info?.cacheFile ?? 'Logbook/index-v4.bin in your local app data folder'}
+            value={info?.cacheFile ?? 'Logbook/index-v5.bin in your local app data folder'}
             onOpen={info ? () => void openFolder(parentOf(info.cacheFile)) : undefined}
           />
         </Section>
@@ -126,17 +135,17 @@ export function About() {
           <p className="m-0">
             Search looks through session names, repositories and full transcripts. A session has to contain every word
             you type, and words match from their start, so <Code>flak</Code> finds “flaky”. Matches are highlighted in
-            the list and in the transcript. Narrow things down further with a time range or a repository from the
-            sidebar.
+            the list and in the transcript. Narrow things down further with a time range, an agent or a repository from
+            the sidebar.
           </p>
         </Section>
 
         <Section title="Resuming">
           <p className="m-0">
             <strong className="font-semibold text-ink">Resume</strong> opens Windows Terminal in the session’s folder
-            running <Code>copilot --resume=&lt;id&gt;</Code>, so the conversation carries on in the CLI with all its
-            context. <strong className="font-semibold text-ink">Copy</strong> puts that command on your clipboard
-            instead.
+            running the agent’s own resume command (<Code>copilot --resume=&lt;id&gt;</Code> or{' '}
+            <Code>claude --resume &lt;id&gt;</Code>), so the conversation carries on with all its context.{' '}
+            <strong className="font-semibold text-ink">Copy</strong> puts that command on your clipboard instead.
           </p>
         </Section>
 

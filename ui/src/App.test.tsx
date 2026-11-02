@@ -22,8 +22,8 @@ import { useApp } from './state/store';
 import type { SearchHit } from './types';
 import { entry, hit, session } from './test/fixtures';
 
-const one = session({ id: 'one', name: 'Fix the flaky test', repository: 'org/app' });
-const two = session({ id: 'two', name: 'Dashboard config', repository: 'org/dash' });
+const one = session({ id: 'copilot:one', name: 'Fix the flaky test', repository: 'org/app' });
+const two = session({ id: 'copilot:two', name: 'Dashboard config', repository: 'org/dash' });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -32,8 +32,8 @@ beforeEach(() => {
   vi.mocked(api.indexStatus).mockResolvedValue({ indexing: false, total: 2, scanned: 0, skipped: 2, generation: 1 });
   vi.mocked(api.appInfo).mockResolvedValue({
     version: '0.1.0',
-    sessionsDir: 'C:\\Users\\me\\.copilot\\session-state',
-    cacheFile: 'C:\\Users\\me\\AppData\\Local\\Logbook\\index-v4.bin',
+    sources: [{ agent: 'copilot', dir: 'C:\\Users\\me\\.copilot\\session-state' }],
+    cacheFile: 'C:\\Users\\me\\AppData\\Local\\Logbook\\index-v5.bin',
   });
   vi.mocked(api.transcript).mockResolvedValue([entry('user', 'why is it flaky?'), entry('assistant', 'A clock race.')]);
 });
@@ -56,7 +56,7 @@ describe('App', () => {
     expect(api.recentSessions).toHaveBeenCalledTimes(1);
     const status = { indexing: false, total: 3, scanned: 1, skipped: 2, generation: 2 };
     vi.mocked(api.indexStatus).mockResolvedValue(status);
-    vi.mocked(api.recentSessions).mockResolvedValue([one, two, session({ id: 'three', name: 'New one' })]);
+    vi.mocked(api.recentSessions).mockResolvedValue([one, two, session({ id: 'copilot:three', name: 'New one' })]);
     await act(() => useApp.getState().refresh());
     expect(api.recentSessions).toHaveBeenCalledTimes(2);
     expect(await screen.findByText('New one')).toBeInTheDocument();
@@ -67,7 +67,7 @@ describe('App', () => {
     fireEvent.click(await screen.findByText('Fix the flaky test'));
     expect(await screen.findByText('A clock race.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
-    expect(api.resumeSession).toHaveBeenCalledWith('one');
+    expect(api.resumeSession).toHaveBeenCalledWith('copilot:one');
   });
 
   it('filters the list by repository', async () => {
@@ -110,7 +110,7 @@ describe('App', () => {
 
   it('applies the range and repository filters to every search hit, not just the first few hundred', async () => {
     const many = Array.from({ length: 300 }, (_, i) =>
-      session({ id: `s${i}`, name: `Session ${i}`, repository: i === 299 ? 'org/rare' : 'org/app' }),
+      session({ id: `copilot:s${i}`, name: `Session ${i}`, repository: i === 299 ? 'org/rare' : 'org/app' }),
     );
     vi.mocked(api.recentSessions).mockResolvedValue(many);
     vi.mocked(api.searchSessions).mockResolvedValue(many.map((s) => hit(s, null)));
@@ -140,5 +140,63 @@ describe('App', () => {
 
     fireEvent.keyDown(window, { key: '?' });
     expect(useApp.getState().about).toBe(true);
+  });
+
+  describe('with two agents', () => {
+    const cc = session({ id: 'claude:cc', agent: 'claude', name: 'Split the indexer', repository: 'org/app' });
+    const gone = session({
+      id: 'claude:gone',
+      agent: 'claude',
+      name: 'Old schema bump',
+      repository: 'org/app',
+      sourceDeletedAt: '2026-10-28T09:00:00Z',
+    });
+    beforeEach(() => vi.mocked(api.recentSessions).mockResolvedValue([one, two, cc, gone]));
+
+    it('labels rows and filters by agent from the sidebar or Alt+number', async () => {
+      render(<App />);
+      const list = await screen.findByRole('listbox', { name: 'Sessions' });
+      await within(list).findAllByRole('option');
+      // A short tag on each row, with the full name for screen readers.
+      expect(within(list).getAllByText('claude')).toHaveLength(2);
+      expect(within(list).getAllByText('copilot')).toHaveLength(2);
+      expect(within(list).getAllByText('Claude Code')[0]).toHaveClass('sr-only');
+
+      const agents = screen.getByRole('navigation', { name: 'Agents' });
+      fireEvent.click(within(agents).getByRole('button', { name: /Claude Code/ }));
+      expect(within(list).getAllByRole('option')).toHaveLength(2);
+      // The title names the agent, so the rows drop their labels.
+      expect(screen.getByRole('heading', { name: 'Claude Code' })).toBeInTheDocument();
+      expect(within(list).queryByText('claude')).toBeNull();
+
+      // Picking it again clears it; Alt+1 picks the first agent.
+      fireEvent.keyDown(window, { key: '2', altKey: true });
+      expect(within(list).getAllByRole('option')).toHaveLength(4);
+      fireEvent.keyDown(window, { key: '1', altKey: true });
+      expect(within(list).getAllByRole('option')).toHaveLength(2);
+      expect(within(list).getByText('Dashboard config')).toBeInTheDocument();
+    });
+
+    it('reads a session whose source was deleted but does not resume it', async () => {
+      render(<App />);
+      fireEvent.click(await screen.findByText('Old schema bump'));
+      expect(await screen.findByText('A clock race.')).toBeInTheDocument();
+      expect(screen.getByText('source deleted')).toBeInTheDocument();
+      expect(screen.getByRole('note')).toHaveTextContent('Claude Code deleted this session’s file by Oct 28, 2026.');
+      expect(screen.getByRole('note')).toHaveTextContent('cleanupPeriodDays');
+      expect(screen.getByRole('button', { name: 'Resume' })).toBeDisabled();
+      // Enter on the row doesn't reach the backend either.
+      await act(() => useApp.getState().resume('claude:gone'));
+      expect(api.resumeSession).not.toHaveBeenCalled();
+    });
+
+    it('shows no agent filter or labels with one agent', async () => {
+      vi.mocked(api.recentSessions).mockResolvedValue([one, two]);
+      render(<App />);
+      const list = await screen.findByRole('listbox', { name: 'Sessions' });
+      await within(list).findAllByRole('option');
+      expect(screen.queryByRole('navigation', { name: 'Agents' })).toBeNull();
+      expect(within(list).queryByText('Copilot CLI')).toBeNull();
+    });
   });
 });

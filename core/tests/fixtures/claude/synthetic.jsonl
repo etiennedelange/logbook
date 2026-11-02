@@ -1,0 +1,10 @@
+{"type":"user","isSidechain":false,"isMeta":true,"message":{"role":"user","content":"<local-command-caveat>Caveat: added by the tool, not typed.</local-command-caveat>"},"timestamp":"2026-10-30T09:00:00.000Z","cwd":"/home/me/demo","gitBranch":"main"}
+{"type":"user","isSidechain":false,"message":{"role":"user","content":"Where does the   parser\nhandle quoted strings?"},"timestamp":"2026-10-30T09:01:00.000Z","cwd":"/home/me/demo","gitBranch":"main"}
+{"type":"assistant","isSidechain":false,"message":{"id":"msg_01","role":"assistant","content":[{"type":"text","text":"Quoted strings are handled in `lex_string`."}]},"timestamp":"2026-10-30T09:01:20.000Z","cwd":"/home/me/demo","gitBranch":"main"}
+{"type":"assistant","isSidechain":false,"message":{"id":"msg_01","role":"assistant","content":[{"type":"text","text":"Escapes are decoded in the same pass."}]},"timestamp":"2026-10-30T09:01:21.000Z","cwd":"/home/me/demo","gitBranch":"main"}
+{"type":"user","isSidechain":false,"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"tool output, not a prompt"}]},"timestamp":"2026-10-30T09:01:22.000Z","cwd":"/home/me/demo","gitBranch":"main"}
+{"type":"user","isSidechain":false,"message":{"role":"user","content":"<command-name>/review</command-name>\n<command-args>the escape handling</command-args>"},"timestamp":"2026-10-30T09:04:00.000Z","cwd":"/home/me/demo","gitBranch":"feature/escapes"}
+{"type":"assistant","isSidechain":false,"message":{"id":"msg_02","role":"assistant","content":[{"type":"text","text":"The escape handling looks right."}]},"timestamp":"2026-10-30T09:08:00.000Z","cwd":"/home/me/demo","gitBranch":"feature/escapes"}
+{"type":"user","message":{"role":"user","content":"truncated mid-wri
+{"type":"custom-title","customTitle":"Escapes in the parser"}
+{"type":"ai-title","aiTitle":"A later generated title"}

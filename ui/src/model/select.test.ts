@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { hit, session } from '../test/fixtures';
-import { rangeStart, repos, visibleRows } from './select';
+import { agentCounts, rangeStart, repos, visibleRows } from './select';
 
 const now = new Date(2026, 9, 13, 12, 0);
 const at = (days: number) => new Date(now.getTime() - days * 86_400_000).toISOString();
@@ -40,5 +40,37 @@ describe('rangeStart', () => {
     expect(rangeStart('today', now)).toEqual(new Date(2026, 9, 13));
     expect(rangeStart('week', now)).toEqual(new Date(2026, 9, 7));
     expect(rangeStart('all', now)).toBeNull();
+  });
+});
+
+describe('agents', () => {
+  const x = session({ id: 'claude:x', agent: 'claude', repository: 'org/a', updatedAt: at(1) });
+  const old = session({ id: 'claude:old', agent: 'claude', repository: 'org/b', updatedAt: at(40) });
+  const all = [a, b, c, x, old];
+
+  it('filters rows by agent, combined with range and repository', () => {
+    const ids = (r: ReturnType<typeof visibleRows>) => r.map((x) => x.session.id);
+    expect(ids(visibleRows(all, null, 'all', null, now, 'claude'))).toEqual(['claude:x', 'claude:old']);
+    expect(ids(visibleRows(all, null, 'week', 'org/a', now, 'claude'))).toEqual(['claude:x']);
+    expect(ids(visibleRows(all, null, 'all', 'org/a', now, 'copilot'))).toEqual(['a', 'c']);
+  });
+
+  it('counts each agent in the range and repository, keeping agents with none', () => {
+    expect(agentCounts(all, ['copilot', 'claude'], 'all', null, now)).toEqual([
+      { agent: 'copilot', count: 3 },
+      { agent: 'claude', count: 2 },
+    ]);
+    expect(agentCounts(all, ['copilot', 'claude'], 'today', 'org/a', now)).toEqual([
+      { agent: 'copilot', count: 1 },
+      { agent: 'claude', count: 0 },
+    ]);
+  });
+
+  it("lists only the picked agent's repositories", () => {
+    expect(repos(all, 'all', now, 'claude').map((r) => r.name)).toEqual(['org/a', 'org/b']);
+    expect(repos(all, 'all', now, 'copilot')).toEqual([
+      { name: 'org/a', count: 2 },
+      { name: 'org/b', count: 1 },
+    ]);
   });
 });

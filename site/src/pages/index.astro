@@ -17,18 +17,45 @@ const keys = [
   ['Enter', 'resume'],
   ['Esc', 'close'],
   ['1–4', 'time range'],
+  ['Alt+1–2', 'agent'],
   ['r', 're-index'],
   ['?', 'about'],
 ];
 
-// What the Copilot CLI's own tools do, per GitHub's docs (linked under the table). Keep the claims checkable.
+// What each agent's own tools do, per their docs (linked under the table). Keep the claims checkable.
+const tools = ['Copilot /resume', 'Copilot /chronicle search', 'Claude Code /resume'];
 const compared = [
-  ['Matches', 'Session names', 'Everything in your sessions', 'Session names, repositories and every message'],
-  ['Results', 'A list of sessions', 'A written summary from the model', 'A list of sessions, each with the matching snippet'],
-  ['Repository', 'Sorted by how well it matches the current folder', 'All repositories at once', 'Pick one in the sidebar'],
-  ['Date range', 'None', 'Written into the prompt: “for the last 3 days”', 'Today, 7 days or 30 days, on 2–4'],
-  ['Session text sent to a model', 'No', 'It may be', 'No'],
-  ['Where you use it', 'Inside a Copilot session', 'Inside a Copilot session', 'Its own window; Enter resumes in the session’s folder'],
+  ['Sessions from', 'Copilot CLI', 'Copilot CLI', 'Claude Code', 'Copilot CLI and Claude Code, together'],
+  [
+    'Matches',
+    'Session names',
+    'Everything in your sessions',
+    'What each row shows: its name, title, summary or first prompt',
+    'Session names, repositories and every message',
+  ],
+  [
+    'Results',
+    'A list of sessions',
+    'A written summary from the model',
+    'A list of sessions',
+    'A list of sessions, each with the matching snippet',
+  ],
+  [
+    'Repository',
+    'Sorted by how well it matches the current folder',
+    'All repositories at once',
+    'The current worktree; Ctrl+W for all worktrees, Ctrl+A for all projects',
+    'Pick one in the sidebar',
+  ],
+  ['Date range', 'None', 'Written into the prompt: “for the last 3 days”', 'None', 'Today, 7 days or 30 days, on 2–4'],
+  ['Session text sent to a model', 'No', 'It may be', 'No', 'No'],
+  [
+    'Where you use it',
+    'Inside a Copilot session',
+    'Inside a Copilot session',
+    'Inside Claude Code, or from a shell',
+    'Its own window; Enter resumes in the session’s folder',
+  ],
 ];
 
 // Phone widths get crops of the list pane: the whole window there would shrink its text to ~3px.
@@ -36,8 +63,8 @@ const narrow = '(max-width: 40rem)';
 ---
 
 <Base
-  title="Logbook: search and resume your Copilot CLI sessions"
-  description="A Windows desktop app that indexes your GitHub Copilot CLI sessions locally, searches full transcripts and resumes any session in its own folder."
+  title="Logbook: search and resume your coding-agent sessions"
+  description="A Windows desktop app that indexes your GitHub Copilot CLI and Claude Code sessions locally, searches full transcripts and resumes any session in its own folder."
 >
   <header class="top">
     <a class="wordmark" href="/">logbook</a>
@@ -50,11 +77,11 @@ const narrow = '(max-width: 40rem)';
 
   <main>
     <section class="hero">
-      <h1>Find the Copilot session you half remember.</h1>
+      <h1>Find the agent session you half remember.</h1>
       <p class="lead">
-        Logbook is a Windows app for the GitHub Copilot CLI. It indexes your session history on your own machine,
-        searches every transcript, and resumes the one you pick in its original folder. It never reads the Copilot
-        CLI’s own database and sends nothing anywhere.
+        Logbook is a Windows app for the GitHub Copilot CLI and Claude Code. It indexes your session history on your
+        own machine, searches every transcript, and resumes the one you pick in its original folder. It never opens
+        either tool’s database and sends nothing anywhere.
       </p>
       <div class="cta">
         <a class="button" href={installer}>Download for Windows</a>
@@ -75,7 +102,7 @@ const narrow = '(max-width: 40rem)';
           src="/screenshots/browse-light.webp"
           width="2360"
           height="1520"
-          alt="Logbook with a session open: a sidebar of time ranges and repositories, a list of sessions, and the transcript with a Resume button."
+          alt="Logbook with a session open: a sidebar of time ranges, agents and repositories, a list of Copilot CLI and Claude Code sessions, and the transcript with a Resume button."
           fetchpriority="high"
         />
       </picture>
@@ -98,25 +125,28 @@ const narrow = '(max-width: 40rem)';
           <div>
             <h3>Resume in the right folder</h3>
             <p>
-              Opens a terminal in the session’s working folder running <code>copilot --resume=&lt;id&gt;</code>. Copy
-              gives you the same command.
+              Opens a terminal in the session’s working folder running <code>copilot --resume=&lt;id&gt;</code> or
+              <code>claude --resume &lt;id&gt;</code>. Copy gives you the same command.
             </p>
           </div>
         </li>
         <li>
           <span class="artifact"><kbd>1–4</kbd></span>
           <div>
-            <h3>Ranges and repositories</h3>
-            <p>All sessions, today, the last 7 days or the last 30 days. Click a repository in the sidebar to narrow to it.</p>
+            <h3>Ranges, agents and repositories</h3>
+            <p>
+              All sessions, today, the last 7 days or the last 30 days. Click an agent or a repository in the sidebar to
+              narrow to it.
+            </p>
           </div>
         </li>
         <li>
-          <span class="artifact"><code>events.jsonl</code></span>
+          <span class="artifact"><code>.jsonl</code></span>
           <div>
             <h3>Indexes only what changed</h3>
             <p>
-              A small local cache keeps what it has read. Only sessions whose <code>events.jsonl</code> changed are
-              scanned again, when the window regains focus or on <kbd>r</kbd>.
+              A small local cache keeps what it has read. Only sessions whose files changed are scanned again, when the
+              window regains focus or on <kbd>r</kbd>.
             </p>
           </div>
         </li>
@@ -151,11 +181,12 @@ const narrow = '(max-width: 40rem)';
 
     <section id="compared" class="compared" aria-labelledby="c">
       <div class="compared-text">
-        <h2 id="c">Next to the CLI’s own tools</h2>
+        <h2 id="c">Next to the agents’ own tools</h2>
         <p>
           The Copilot CLI finds old sessions two ways: the <code>/resume</code> picker, which matches session names,
-          and <code>/chronicle search</code>, which has the model search your history and write a summary. Logbook is
-          for when you remember a word, a repository or roughly when, and want the session itself back.
+          and <code>/chronicle search</code>, which has the model search your history and write a summary. Claude Code’s
+          <code>/resume</code> picker lists the current worktree’s sessions by name or title. Logbook is for when you remember a
+          word, a repository or roughly when, and want the session itself back, whichever agent it was in.
         </p>
       </div>
       <div class="table-wrap">
@@ -163,18 +194,20 @@ const narrow = '(max-width: 40rem)';
           <thead>
             <tr>
               <td></td>
-              <th scope="col"><code>/resume</code> picker</th>
-              <th scope="col"><code>/chronicle search</code></th>
+              <th scope="col">Copilot <code>/resume</code></th>
+              <th scope="col">Copilot <code>/chronicle search</code></th>
+              <th scope="col">Claude Code <code>/resume</code></th>
               <th scope="col">Logbook</th>
             </tr>
           </thead>
           <tbody>
             {
-              compared.map(([row, picker, chronicle, logbook]) => (
+              compared.map(([row, picker, chronicle, claude, logbook]) => (
                 <tr>
                   <th scope="row">{row}</th>
-                  <td data-label="/resume picker">{picker}</td>
-                  <td data-label="/chronicle search">{chronicle}</td>
+                  <td data-label={tools[0]}>{picker}</td>
+                  <td data-label={tools[1]}>{chronicle}</td>
+                  <td data-label={tools[2]}>{claude}</td>
                   <td data-label="Logbook" class="ours">{logbook}</td>
                 </tr>
               ))
@@ -183,19 +216,26 @@ const narrow = '(max-width: 40rem)';
         </table>
       </div>
       <p class="source">
-        The CLI columns follow GitHub’s docs on{' '}
+        The Copilot columns follow GitHub’s docs on{' '}
         <a href="https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/work-with-multiple-sessions">working with multiple sessions</a>{' '}
-        and <a href="https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/chronicle">session data</a>, as of
-        November 2026.
+        and <a href="https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/chronicle">session data</a>; the
+        Claude Code column follows Anthropic’s docs on{' '}
+        <a href="https://code.claude.com/docs/en/sessions">managing sessions</a>. As of November 2026.
       </p>
     </section>
 
     <section id="how" class="how" aria-labelledby="h">
       <h2 id="h">How it works</h2>
       <p>
-        Logbook reads each session’s <code>events.jsonl</code> under the Copilot CLI’s session folder
-        (<code>~/.copilot</code>, or <code>COPILOT_HOME</code>) and builds its own index in your local app data
-        folder. The Copilot CLI’s <code>session-store.db</code> is never opened.
+        Logbook reads each Copilot CLI session’s <code>events.jsonl</code> (under <code>~/.copilot</code>, or
+        <code>COPILOT_HOME</code>) and each Claude Code transcript (under <code>~/.claude/projects</code>, or
+        <code>CLAUDE_CONFIG_DIR</code>), and builds its own index in your local app data folder. It never writes to
+        either folder, and the Copilot CLI’s <code>session-store.db</code> is never opened.
+      </p>
+      <p>
+        Claude Code deletes transcripts after 30 days (its <code>cleanupPeriodDays</code> setting). Logbook keeps its
+        own copy of every conversation it has read, so those sessions stay searchable and readable, marked “source
+        deleted”. They just can’t be resumed.
       </p>
       <p>
         The index is a small <code>postcard</code> file, so start-up is a read, not a scan. The core is Rust and
@@ -549,7 +589,7 @@ const narrow = '(max-width: 40rem)';
     color: var(--fg);
   }
   .compared tbody th {
-    width: 22%;
+    width: 16%;
     font-weight: var(--weight-ui);
   }
   .compared tbody tr:last-child > * {

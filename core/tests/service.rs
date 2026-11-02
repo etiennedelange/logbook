@@ -5,7 +5,7 @@ use logbook_core::service::{is_safe_id, SessionService};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-// `COPILOT_HOME`/`LOGBOOK_CACHE_DIR` are process-wide env vars, so serialize
+// `COPILOT_HOME`/`CLAUDE_CONFIG_DIR`/`LOGBOOK_CACHE_DIR` are process-wide env vars, so serialize
 // the setup+bootstrap step across tests to avoid one test's temp dir leaking into
 // another's `SessionService::bootstrap()` call.
 static ENV_GUARD: Mutex<()> = Mutex::new(());
@@ -43,6 +43,8 @@ fn bootstrap_in(root: &Path) -> SessionService {
     let cache_dir = root.join("cache");
     std::fs::create_dir_all(&cache_dir).unwrap();
     std::env::set_var("COPILOT_HOME", root);
+    // No Claude Code folder: these tests are about Copilot alone.
+    std::env::set_var("CLAUDE_CONFIG_DIR", root.join("claude"));
     std::env::set_var("LOGBOOK_CACHE_DIR", &cache_dir);
     SessionService::bootstrap().expect("bootstrap should succeed")
 }
@@ -79,9 +81,9 @@ fn unknown_session_is_none() {
     let root = unique_temp_dir("detail-none");
     let service = bootstrap_in(&root);
 
-    assert!(service.get("nope").is_none());
-    assert!(service.transcript("nope").is_none());
-    assert!(service.resume_command("nope").is_none());
+    assert!(service.get("copilot:nope").is_none());
+    assert!(service.transcript("copilot:nope").is_none());
+    assert!(service.resume_command("copilot:nope").is_none());
 
     std::fs::remove_dir_all(&root).ok();
 }
@@ -92,15 +94,15 @@ fn session_detail_transcript_and_resume_command() {
     let root = unique_temp_dir("full-flow");
     let service = bootstrap_in(&root);
 
-    let detail = service.get("sess-1").expect("session");
+    let detail = service.get("copilot:sess-1").expect("session");
     assert_eq!(detail.name.as_deref(), Some("dashboard work"));
     assert_eq!(detail.first_prompt.as_deref(), Some("please build the dashboard env config"));
 
-    let timeline = service.transcript("sess-1").expect("transcript");
+    let timeline = service.transcript("copilot:sess-1").expect("transcript");
     assert_eq!(timeline.len(), 2);
     assert_eq!(timeline[0].role, "user");
 
-    assert_eq!(service.resume_command("sess-1").as_deref(), Some("copilot --resume=sess-1"));
+    assert_eq!(service.resume_command("copilot:sess-1").as_deref(), Some("copilot --resume=sess-1"));
     assert_eq!(service.stats().total, 1);
 
     std::fs::remove_dir_all(&root).ok();
@@ -128,7 +130,7 @@ fn renaming_a_session_is_picked_up_without_new_messages() {
 
     let stats = service.rebuild().unwrap();
     assert_eq!(stats.scanned, 1);
-    assert_eq!(service.get("sess-1").unwrap().name.as_deref(), Some("renamed"));
+    assert_eq!(service.get("copilot:sess-1").unwrap().name.as_deref(), Some("renamed"));
     assert_eq!(service.rebuild().unwrap().skipped, 1);
 
     std::fs::remove_dir_all(&root).ok();
@@ -148,7 +150,7 @@ fn mismatched_yaml_id_is_keyed_by_folder_and_not_rescanned() {
     // The yaml change is rescanned once, then the session must stay put.
     let first = service.rebuild().unwrap();
     assert_eq!(first.removed, 0);
-    assert!(service.get("sess-1").is_some());
+    assert!(service.get("copilot:sess-1").is_some());
     let second = service.rebuild().unwrap();
     assert_eq!((second.scanned, second.removed, second.skipped), (0, 0, 1));
 
@@ -160,12 +162,27 @@ fn session_whose_yaml_disappears_is_dropped() {
     let _guard = ENV_GUARD.lock().unwrap();
     let root = unique_temp_dir("noyaml");
     let service = bootstrap_in(&root);
-    assert!(service.get("sess-1").is_some());
+    assert!(service.get("copilot:sess-1").is_some());
 
     std::fs::remove_file(root.join("session-state").join("sess-1").join("workspace.yaml")).unwrap();
     let stats = service.rebuild().unwrap();
     assert_eq!(stats.removed, 1);
-    assert!(service.get("sess-1").is_none());
+    assert!(service.get("copilot:sess-1").is_none());
+
+    std::fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn missing_sessions_folder_keeps_cached_sessions() {
+    let _guard = ENV_GUARD.lock().unwrap();
+    let root = unique_temp_dir("noroot");
+    let service = bootstrap_in(&root);
+
+    // E.g. a profile on a drive that isn't mounted: nothing to look at, so nothing is dropped.
+    std::fs::remove_dir_all(root.join("session-state")).unwrap();
+    let stats = service.rebuild().unwrap();
+    assert_eq!((stats.total, stats.removed), (0, 0));
+    assert!(service.get("copilot:sess-1").is_some());
 
     std::fs::remove_dir_all(&root).ok();
 }

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { api } from '../api';
-import type { Range } from '../model/select';
-import type { IndexStatus, SearchHit, Session, TimelineEntry, UpdateInfo } from '../types';
+import { sessionsById, type Range } from '../model/select';
+import type { Agent, IndexStatus, SearchHit, Session, TimelineEntry, UpdateInfo } from '../types';
 import { saveWhatsNew } from '../update';
 
 export type Theme = 'dark' | 'light';
@@ -64,6 +64,8 @@ interface AppState {
   searching: boolean;
   range: Range;
   repo: string | null;
+  /** Only this agent's sessions, or every agent's. */
+  agent: Agent | null;
   selId: string | null;
   detail: Detail | null;
   theme: Theme;
@@ -82,6 +84,7 @@ interface AppState {
   setQuery: (q: string) => void;
   setRange: (r: Range) => void;
   setRepo: (r: string | null) => void;
+  setAgent: (a: Agent | null) => void;
   select: (id: string) => void;
   clearSelection: () => void;
   toggleTheme: () => void;
@@ -116,6 +119,7 @@ export const useApp = create<AppState>()((set, get) => ({
   searching: false,
   range: 'all',
   repo: null,
+  agent: null,
   selId: null,
   detail: null,
   theme: 'dark',
@@ -185,6 +189,7 @@ export const useApp = create<AppState>()((set, get) => ({
 
   setRange: (range) => set({ range }),
   setRepo: (repo) => set({ repo }),
+  setAgent: (agent) => set({ agent }),
 
   select: (id) => {
     if (get().detail?.id === id) {
@@ -258,6 +263,10 @@ export const useApp = create<AppState>()((set, get) => ({
   },
 
   resume: async (id) => {
+    if (sessionsById(get().sessions).get(id)?.sourceDeletedAt) {
+      get().notify('This session’s file was deleted, so it can’t be resumed. Copy still copies the command.', 'error');
+      return;
+    }
     try {
       await api.resumeSession(id);
       get().notify('Opened a terminal to resume this session');
