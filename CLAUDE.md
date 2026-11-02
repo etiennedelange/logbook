@@ -23,6 +23,15 @@ the mock data and checks its state, text, focus and notices; it exits non-zero o
 UI change. A new control or state gets a check in `tools/screenshots/check.mjs`; mock data changes may need
 its expectations (session names, resume commands) updated.
 
+## E2E
+
+`pnpm e2e` drives the built app (Rust backend, IPC and UI together) through `tauri-driver` against fixture
+Copilot and Claude Code session files it writes to a temp folder (`tools/e2e/`). Build first with
+`pnpm tauri build --debug --no-bundle`; on a headless Linux box run it under `xvfb-run -a` (needs
+`webkit2gtk-driver` and `cargo install tauri-driver --locked`). CI runs it on Linux and Windows, and runs
+`pnpm ui-check` too. A failing step leaves a screenshot in `tools/e2e/out/` (a CI artifact). Behaviour the
+mock can't show (reading files, indexing, search, deletion) gets a step in `tools/e2e/app.test.mjs`.
+
 ## Releasing
 
 `docs/RELEASING.md`: `pnpm release [version]`, or Actions → Cut release. Add a `CHANGELOG.md` line under

@@ -107,6 +107,9 @@ let searchSeq = 0;
 let searchInFlight = false;
 let pendingQuery: string | null = null;
 let noticeTimer: ReturnType<typeof setTimeout> | undefined;
+// The index generation `sessions` was fetched at. Not `status.generation`: other calls (reindex)
+// store a newer status before the list is refetched, and comparing with that would skip the refetch.
+let listedGeneration: number | null = null;
 
 export const useApp = create<AppState>()((set, get) => ({
   sessions: [],
@@ -134,12 +137,13 @@ export const useApp = create<AppState>()((set, get) => ({
       const status = await api.indexStatus();
       // A re-scan that found nothing new leaves the index as it was: keep the list (and
       // everything worked out from it) rather than fetching and re-filtering it all.
-      if (get().loaded && !get().error && status.generation === get().status?.generation) {
+      if (get().loaded && !get().error && status.generation === listedGeneration) {
         set({ status });
         return;
       }
       // Every session is loaded up front; the range and repo filters run in the UI.
       const sessions = await api.recentSessions();
+      listedGeneration = status.generation;
       set({ sessions, status, loaded: true, error: null });
       // Re-run an active search so its hits reflect the new index.
       const { query } = get();
