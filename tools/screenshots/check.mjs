@@ -353,11 +353,14 @@ const SECTIONS = {
       ok((await transcript(p).innerText()).includes('Claude'), 'speaker');
       return clip;
     });
-    await check('the folder button sits next to the folder path and opens it', async () => {
+    await check('the resume dock shows the folder and command, and its folder button opens the folder', async () => {
       await row(p, 'Dashboard env config').click();
-      const btn = detail(p).locator('dd').getByRole('button', { name: 'Open C:\\Repos\\reading-list' });
-      await btn.click();
-      eq(await detail(p).locator('header').getByRole('button', { name: /^Open / }).count(), 0, 'still in the header');
+      const dock = detail(p).locator('code[title*="--resume"]');
+      const text = (await dock.innerText()).replace(/\s+/g, ' ');
+      ok(text.startsWith('C:\\Repos\\reading-list') && text.includes('--resume'), text);
+      await detail(p).getByRole('button', { name: 'Open C:\\Repos\\reading-list' }).click();
+      eq(await detail(p).locator('header').getByRole('button', { name: /^Open / }).count(), 0, 'in the header');
+      return text;
     });
     await check('an untitled session is titled by its first prompt', async () => {
       await row(p, 'git rebase --update-refs').click();
@@ -573,11 +576,13 @@ const SECTIONS = {
       const w = await p.locator('aside').evaluate((e) => e.getBoundingClientRect().width);
       eq(w, 56, 'sidebar width');
     });
-    await check('below 1100px Resume is an icon that keeps its name', async () => {
-      const btn = p.getByRole('button', { name: 'Resume', exact: true });
-      // The label is visually hidden (sr-only), so it takes up no room.
-      const w = await btn.locator('span').evaluate((e) => e.getBoundingClientRect().width);
-      ok(w <= 1, `label is ${w}px wide`);
+    await check('at 760px the resume dock fits: Resume, copy and open folder all in view', async () => {
+      const pane = await detail(p).evaluate((e) => e.getBoundingClientRect().right);
+      for (const name of ['Resume', 'Copy resume command', /^Open /]) {
+        const b = detail(p).getByRole('button', { name, exact: typeof name === 'string' });
+        const r = await b.evaluate((e) => e.getBoundingClientRect().right);
+        ok(r <= pane, `${name} overflows the pane (${r} > ${pane})`);
+      }
     });
   },
 

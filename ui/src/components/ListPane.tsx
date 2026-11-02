@@ -69,7 +69,7 @@ export function ListPane() {
   const firstSelectable = selIndex >= 0 ? selId : rows[0]?.session.id;
 
   return (
-    <section aria-label="Sessions" className="flex min-h-0 min-w-0 flex-col border-r border-line">
+    <section aria-label="Sessions" className="flex min-h-0 min-w-0 flex-col border-r border-line bg-list">
       <PaneHeader title={title} sub={sub}>
         {repo && (
           <button
@@ -82,7 +82,7 @@ export function ListPane() {
           </button>
         )}
       </PaneHeader>
-      <div className="flex-none border-b border-line px-3 py-[10px]">
+      <div className="flex-none px-3 pb-[6px] pt-3">
         <SearchBox
           value={query}
           onChange={setQuery}
@@ -99,7 +99,7 @@ export function ListPane() {
         onKeyDown={onListboxKey}
         // Only dims when a search takes long enough to notice.
         className={cx(
-          'min-h-0 flex-1 overflow-y-auto transition-opacity duration-150',
+          'min-h-0 flex-1 overflow-y-auto px-2 pb-2 transition-opacity duration-150',
           searching && 'opacity-60 delay-300',
         )}
       >
@@ -217,10 +217,7 @@ function DayGroup({ label, children }: { label: string; children: React.ReactNod
   const id = useId();
   return (
     <div role="group" aria-labelledby={id}>
-      <div
-        id={id}
-        className="sticky top-0 z-10 border-b border-line-soft bg-bg px-4 pb-[5px] pt-[10px] text-[11px] font-medium text-mute"
-      >
+      <div id={id} className="sticky top-0 z-10 bg-list px-3 pb-[5px] pt-[12px] text-[11px] font-medium text-mute">
         {label}
       </div>
       {children}
@@ -252,11 +249,10 @@ const SessionRow = memo(function SessionRow(p: {
     <div
       {...props}
       className={cx(
-        'relative flex cursor-default flex-col gap-[4px] border-b border-line-soft px-4 py-[10px]',
+        'mb-px flex cursor-default flex-col gap-[4px] rounded-[10px] px-3 py-[9px]',
         p.selected ? 'bg-sel' : 'hover:bg-hover',
       )}
     >
-      {p.selected && <span aria-hidden="true" className="absolute inset-y-0 left-0 w-[2px] bg-accent" />}
       <div className="flex items-baseline gap-3">
         <span
           title={title.text}
@@ -344,7 +340,7 @@ function ListSkeleton() {
   return (
     <div aria-hidden="true">
       {[62, 48, 70, 54, 40, 66].map((w, i) => (
-        <div key={i} className="flex flex-col gap-[9px] border-b border-line-soft px-4 py-[13px]">
+        <div key={i} className="flex flex-col gap-[9px] px-3 py-[13px]">
           <div className="skeleton h-[10px]" style={{ width: `${w}%` }} />
           <div className="skeleton h-[8px] w-[34%]" />
         </div>
