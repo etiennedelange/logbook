@@ -99,7 +99,7 @@ export function ListPane() {
         onKeyDown={onListboxKey}
         // Only dims when a search takes long enough to notice.
         className={cx(
-          'min-h-0 flex-1 overflow-y-auto px-2 pb-2 transition-opacity duration-150',
+          'relative min-h-0 flex-1 overflow-y-auto px-2 pb-2 transition-opacity duration-150',
           searching && 'opacity-60 delay-300',
         )}
       >

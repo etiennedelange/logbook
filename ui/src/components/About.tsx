@@ -91,7 +91,7 @@ export function About() {
         </button>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6 pt-5">
+      <div className="relative min-h-0 flex-1 overflow-y-auto px-5 pb-6 pt-5">
         <p className="m-0 text-[13.5px] leading-[1.6] text-ink">
           Logbook keeps a searchable record of your coding-agent sessions from the GitHub Copilot CLI and Claude Code,
           so you can find an old conversation and pick it up right where you left off.

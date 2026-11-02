@@ -138,7 +138,7 @@ export function Sidebar() {
           />
         </div>
       )}
-      <div className="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2 pb-2 max-[959px]:invisible">
+      <div className="relative flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2 pb-2 max-[959px]:invisible">
         {shown.map((r) => (
           <RepoRow key={r.name} name={r.name} count={r.count} on={repo === r.name} onToggle={toggleRepo} />
         ))}
