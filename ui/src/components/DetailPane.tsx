@@ -21,6 +21,7 @@ import { AboutButton } from './About';
 import { Icon, type IconName } from './Icon';
 import { Markdown } from './Markdown';
 import { PaneHeader } from './PaneHeader';
+import { UpdatePill } from './UpdatePill';
 import { WindowControls } from './WindowControls';
 import { Shortcuts } from './Shortcuts';
 
@@ -71,6 +72,7 @@ export function DetailPane() {
         <IconAction icon="copy" label="Copy resume command" onClick={() => void copyResume(session.id)} />
         {folder && <IconAction icon="folder" label={`Open ${folder}`} onClick={() => void openFolder(folder)} />}
         <span className="mx-[2px] h-4 w-px flex-none bg-line" aria-hidden="true" />
+        <UpdatePill />
         <AboutButton />
         <WindowControls />
       </PaneHeader>
@@ -283,6 +285,7 @@ function NothingSelected() {
   return (
     <section aria-label="Session" data-pane="detail" className="flex min-h-0 min-w-0 flex-col">
       <PaneHeader title="No session selected" sub="Pick one to read its transcript" className="px-5">
+        <UpdatePill />
         <AboutButton />
         <WindowControls />
       </PaneHeader>

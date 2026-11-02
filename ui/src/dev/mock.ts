@@ -203,6 +203,12 @@ export function installMock(): void {
           return find(a.id!)?.t ?? [];
         case 'resume_command':
           return `copilot --resume=${a.id}`;
+        case 'check_update':
+          return mockUpdate();
+        case 'install_update':
+          // The real one never returns on Windows: the installer closes the app.
+          return new Promise(() => undefined);
+        case 'open_release_page':
         case 'resume_session':
         case 'open_folder':
         case 'open_link':
@@ -216,6 +222,28 @@ export function installMock(): void {
   void applyUrlPresets();
 }
 
+/**
+ * `?update` offers a newer version with realistic notes, and `?whatsnew` also opens its dialog
+ * (`?whatsnew=installed` shows it as after an update).
+ */
+function mockUpdate() {
+  const p = new URLSearchParams(location.search);
+  if (!p.has('update') && !p.has('whatsnew')) return null;
+  return {
+    version: '0.2.0',
+    date: new Date().toISOString(),
+    notes: [
+      '### Added',
+      '- **Updates.** Logbook checks GitHub for new releases and shows **Update** in the toolbar.',
+      '  What’s New shows the release notes, and **Update now** installs it and restarts.',
+      '- **Check for updates** next to the version in About.',
+      '',
+      '### Fixed',
+      '- The transcript keeps its scroll position when the index refreshes in the background.',
+    ].join('\n'),
+  };
+}
+
 /** `?theme=light&range=week&q=dash&sel=<id or index>&about` set up a state directly, for screenshots. */
 async function applyUrlPresets(): Promise<void> {
   const p = new URLSearchParams(location.search);
@@ -226,6 +254,13 @@ async function applyUrlPresets(): Promise<void> {
     useApp.setState({ theme });
   }
   if (p.has('about')) useApp.getState().setAbout(true);
+  if (p.has('whatsnew')) {
+    const update = await useApp.getState().checkUpdate();
+    if (update) {
+      const mode = p.get('whatsnew') === 'installed' ? 'installed' : 'update';
+      useApp.getState().setWhatsNew({ ...update, mode });
+    }
+  }
   const range = p.get('range');
   if (range === 'all' || range === 'today' || range === 'week' || range === 'month') useApp.getState().setRange(range);
   const q = p.get('q');

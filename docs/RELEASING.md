@@ -52,9 +52,11 @@ a year at most; renew it under **Settings → Developer settings → Fine-graine
 
 ### What the tag starts
 
-1. **`release.yml`** checks that the tag is on `main` and agrees with all seven version fields, builds the
-   NSIS installer on Windows, and publishes the GitHub Release with `Logbook_<version>_x64-setup.exe`.
-   The notes are the CHANGELOG's section for the version, followed by GitHub's list of merged PRs.
+1. **`release.yml`** checks that the tag is on `main` and agrees with all seven version fields, and that the
+   updater key is set. It builds the NSIS installer on Windows and publishes the GitHub Release with
+   `Logbook_<version>_x64-setup.exe`, its updater signature (`.sig`) and `latest.json` for the in-app
+   updater (below). The notes are the CHANGELOG's section for the version, followed by GitHub's list of
+   merged PRs.
 2. It then starts **`site-rebuild.yml`**, which calls the Workers Builds deploy hook to rebuild the site.
    The site's download button points at `releases/download/v<version>/Logbook_<version>_x64-setup.exe`,
    so it only works once the release exists. (A release made with the job's own token doesn't fire the
@@ -64,6 +66,58 @@ a year at most; renew it under **Settings → Developer settings → Fine-graine
 A version with a pre-release part (`0.3.0-rc.1`) is published as a pre-release and doesn't rebuild the
 site. If the Release run fails, fix the cause and rerun it from the Actions tab; if the fix needs code,
 release a new patch version instead.
+
+## In-app updater
+
+`tauri-plugin-updater` reads
+`https://github.com/etiennedelange/logbook/releases/latest/download/latest.json` (`plugins.updater` in
+`src-tauri/tauri.conf.json`). `tauri-action` writes that file and uploads it with each release. Its `notes`
+are the CHANGELOG section alone, which is what Logbook shows as **What's New**.
+
+- Logbook checks 5 seconds after it starts and then every hour until it finds an update. It's often left
+  open for days, and a single check would never see a later release. A failed check is only logged.
+  **About → Check for updates** checks right away and says what happened.
+- An update shows as **Update** in the toolbar (**Update to x.y.z** when the window is wide). That opens **What's New** with the release notes.
+  **Update now** downloads the installer and checks its signature against `plugins.updater.pubkey`
+  (`src-tauri/src/update.rs`). It then runs the installer in passive mode (a progress bar, no
+  questions). The installer closes Logbook and starts the new version.
+- Before installing, the UI keeps the notes in `localStorage`. On its first start the new version shows
+  them once as "You're now on Logbook x.y.z" (`ui/src/update.ts`).
+- `latest.json` holds only the newest release, so an update that skips versions shows the newest notes
+  alone. **Release page** in the dialog links to the rest.
+- A pre-release never reaches installed copies, because GitHub's *latest* skips pre-releases. To try the
+  updater end to end, release two normal patch versions.
+- 0.1.1 and earlier have no updater. They need the next installer downloaded once by hand, and from then
+  on they update themselves.
+- `pnpm mock:web` with `?update` in the URL offers a fake 0.2.0. `?whatsnew` opens its dialog, and
+  `?whatsnew=installed` shows the dialog as it looks after an update.
+
+### The updater signing key
+
+`bundle.createUpdaterArtifacts` makes `tauri build` sign the installer with a minisign key, and every
+installed copy checks updates against the public half in `tauri.conf.json`. This is not code signing, so
+SmartScreen still warns on first install. It does stop anyone who could swap a release asset from
+pushing their own installer to every copy.
+
+Once, on your own machine:
+
+```sh
+pnpm tauri signer generate -w ~/.tauri/logbook-updater.key   # asks for a password
+gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/logbook-updater.key
+gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD               # paste the password
+```
+
+Put the public key (`~/.tauri/logbook-updater.key.pub`, one line) into `plugins.updater.pubkey` in
+`src-tauri/tauri.conf.json`, replacing `REPLACE_WITH_THE_PUBLIC_KEY`, and merge that before the next release.
+The release job fails early while either is missing.
+
+**Back up the private key and its password** outside this machine, for example in a password manager.
+Without them no installed copy can be updated again, and every user would have to download a new installer
+by hand. Changing the key works the same way, because copies that trust the old key reject updates signed
+with the new one.
+
+A local `pnpm tauri build` needs the key in `TAURI_SIGNING_PRIVATE_KEY`, or
+`--config src-tauri/tauri.no-updater.conf.json` to build without the updater signature.
 
 ## The version
 
@@ -87,6 +141,4 @@ sets them for you; `version.mjs` on its own is for checking, or for a version ch
 
 - **The installer is unsigned.** Windows SmartScreen will warn on first run ("More info", then "Run
   anyway"). Signing needs a code-signing certificate and is deferred.
-- **No auto-update.** Users download the next installer themselves. Tauri's updater needs a signing keypair;
-  deferred.
 - **Windows only.** `bundle.targets` is `nsis`, and Resume launches `wt.exe` or `cmd`.

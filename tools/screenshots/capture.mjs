@@ -41,6 +41,8 @@ const SCENES = {
   browse: { params: { sel: '0', range: 'all' } },
   search: { params: { q: 'reminder', sel: '1', range: 'all' } },
   about: { params: { sel: '0', range: 'all', about: '1' } },
+  // An update on offer: the toolbar pill and What's New with the release notes.
+  'whats-new': { params: { sel: '0', range: 'all', whatsnew: '1' } },
   // The site's search section: the matching row and the highlighted messages, legible at its size.
   'search-detail': { params: { q: 'reminder', sel: '1', range: 'all' }, crop: LIST_AND_DETAIL },
   // Phone-width stand-ins for the full window, whose text would be ~3px tall there.
@@ -80,6 +82,8 @@ const PUBLISHED = [
   'search-narrow-light.webp',
   'browse-narrow-dark.webp',
   'browse-narrow-light.webp',
+  'whats-new-dark.webp',
+  'whats-new-light.webp',
   'search-clip-dark.webm',
   'search-clip-light.webm',
 ];

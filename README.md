@@ -15,6 +15,8 @@ Built with Tauri 2 (Rust) and React, laid out like
 - **Incremental indexing**: a small `postcard` cache in your local app data folder; only
   sessions whose `events.jsonl` changed get re-scanned. Re-indexes when the window
   regains focus, or press `r`.
+- **Updates**: when a new release is out, **Update** appears in the toolbar. **What's New** shows
+  its release notes, and **Update now** installs it and restarts.
 
 Keyboard: `/` search · `↑`/`↓` move · `Enter` resume · `Esc` close · `?` about · `Ctrl`+wheel zoom.
 
@@ -39,7 +41,7 @@ Requires Rust (stable), Node and pnpm. No Docker or server needed.
 ```bash
 pnpm install
 pnpm tauri dev      # dev window with hot reload
-pnpm tauri build    # release build and NSIS installer
+pnpm tauri build --config src-tauri/tauri.no-updater.conf.json   # installer, without the updater signing key
 ```
 
 Work on the UI alone, in a browser, against fake data:

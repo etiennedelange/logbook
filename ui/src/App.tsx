@@ -1,12 +1,14 @@
 import { useEffect } from 'react';
-import { onIndexUpdated } from './api';
+import { api, onIndexUpdated } from './api';
 import { About } from './components/About';
 import { DetailPane } from './components/DetailPane';
 import { ListPane } from './components/ListPane';
 import { Notice } from './components/Notice';
 import { Sidebar } from './components/Sidebar';
+import { WhatsNew } from './components/WhatsNew';
 import { RANGES } from './model/select';
 import { useApp } from './state/store';
+import { scheduleUpdateChecks, takeWhatsNew } from './update';
 import { applyZoom, loadZoom, nextZoom, saveZoom } from './zoom';
 
 function isTyping(t: EventTarget | null): boolean {
@@ -44,6 +46,23 @@ export default function App() {
   }, [refresh]);
 
   useEffect(() => {
+    // After an update, the new version shows the notes it was installed with, once.
+    let cancelled = false;
+    api.appInfo().then(
+      ({ version }) => {
+        const saved = takeWhatsNew(version);
+        if (saved && !cancelled) useApp.getState().setWhatsNew({ ...saved, mode: 'installed' });
+      },
+      () => undefined,
+    );
+    const stop = scheduleUpdateChecks(() => useApp.getState().checkUpdate());
+    return () => {
+      cancelled = true;
+      stop();
+    };
+  }, []);
+
+  useEffect(() => {
     let zoom = loadZoom();
     void applyZoom(zoom);
     const set = (z: number) => {
@@ -75,8 +94,8 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
       const s = useApp.getState();
-      // The About dialog is modal: it closes itself on Esc, and nothing behind it reacts.
-      if (s.about) return;
+      // The dialogs are modal: they close themselves on Esc, and nothing behind them reacts.
+      if (s.about || s.whatsNew) return;
       if (e.key === '?') {
         s.setAbout(true);
         return;
@@ -114,6 +133,7 @@ export default function App() {
       <DetailPane />
       <Notice />
       <About />
+      <WhatsNew />
     </div>
   );
 }

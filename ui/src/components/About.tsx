@@ -26,9 +26,10 @@ export function AboutButton() {
 
 /** What Logbook is and how it works, in a modal over the window. */
 export function About() {
-  const { open, setAbout, openFolder } = useApp(
-    useShallow((s) => ({ open: s.about, setAbout: s.setAbout, openFolder: s.openFolder })),
+  const { open, setAbout, openFolder, checkUpdate } = useApp(
+    useShallow((s) => ({ open: s.about, setAbout: s.setAbout, openFolder: s.openFolder, checkUpdate: s.checkUpdate })),
   );
+  const [checking, setChecking] = useState(false);
   const ref = useRef<HTMLDialogElement>(null);
   const [info, setInfo] = useState<AppInfo | null>(null);
 
@@ -61,8 +62,21 @@ export function About() {
           <h1 id="about-title" className="text-[15px] font-semibold">
             About Logbook
           </h1>
-          <span className="text-[12px] text-mute">
+          <span className="flex items-center gap-2 text-[12px] text-mute">
             {info ? `Version ${info.version}` : 'Your Copilot CLI sessions'}
+            {info && (
+              <button
+                type="button"
+                disabled={checking}
+                onClick={() => {
+                  setChecking(true);
+                  void checkUpdate(true).finally(() => setChecking(false));
+                }}
+                className="rounded px-1 text-accent-text underline-offset-2 hover:underline disabled:text-mute disabled:no-underline"
+              >
+                {checking ? 'Checking…' : 'Check for updates'}
+              </button>
+            )}
           </span>
         </div>
         <button

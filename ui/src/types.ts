@@ -48,3 +48,12 @@ export interface IndexStatus {
   /** Changes whenever the index does. */
   generation: number;
 }
+
+/** A newer release found on GitHub (`update::UpdateInfo`). */
+export interface UpdateInfo {
+  version: string;
+  /** The release's CHANGELOG section, as Markdown. */
+  notes: string | null;
+  /** RFC 3339. */
+  date: string | null;
+}

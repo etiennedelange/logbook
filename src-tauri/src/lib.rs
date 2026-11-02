@@ -1,4 +1,5 @@
 mod commands;
+mod update;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -76,6 +77,7 @@ pub fn run() {
         // Must be first: a second launch just brings the running window forward and exits.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main(app)))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
             commands::index_status,
@@ -88,6 +90,9 @@ pub fn run() {
             commands::resume_session,
             commands::open_folder,
             commands::open_link,
+            update::check_update,
+            update::install_update,
+            update::open_release_page,
         ])
         .setup(|app| {
             #[cfg(windows)]

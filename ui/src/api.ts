@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import type { AppInfo, IndexStatus, SearchHit, Session, TimelineEntry } from './types';
+import type { AppInfo, IndexStatus, SearchHit, Session, TimelineEntry, UpdateInfo } from './types';
 
 export const api = {
   appInfo: () => invoke<AppInfo>('app_info'),
@@ -17,6 +17,11 @@ export const api = {
   openFolder: (path: string) => invoke<void>('open_folder', { path }),
   /** Opens an http(s) link from a transcript in the default browser. */
   openLink: (url: string) => invoke<void>('open_link', { url }),
+  /** Asks GitHub Releases for a newer version; null when Logbook is up to date. */
+  checkUpdate: () => invoke<UpdateInfo | null>('check_update'),
+  /** Downloads and installs the update. On Windows the installer closes Logbook and starts the new version. */
+  installUpdate: () => invoke<void>('install_update'),
+  openReleasePage: (version: string) => invoke<void>('open_release_page', { version }),
 };
 
 /** Fires after every indexer run (at startup and after `reindex`). */

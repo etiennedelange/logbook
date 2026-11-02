@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { api } from '../api';
 import type { Range } from '../model/select';
-import type { IndexStatus, SearchHit, Session, TimelineEntry } from '../types';
+import type { IndexStatus, SearchHit, Session, TimelineEntry, UpdateInfo } from '../types';
+import { saveWhatsNew } from '../update';
 
 export type Theme = 'dark' | 'light';
 const THEME_KEY = 'logbook-theme';
@@ -34,6 +35,13 @@ export function initTheme(): Theme {
   return t;
 }
 
+/** What the What's New dialog shows: an update on offer, or the version just installed. */
+export interface WhatsNew {
+  version: string;
+  notes: string | null;
+  mode: 'update' | 'installed';
+}
+
 const msg = (e: unknown): string => (typeof e === 'string' ? e : e instanceof Error ? e.message : String(e));
 
 export interface Detail {
@@ -63,6 +71,12 @@ interface AppState {
   notice: { text: string; tone: 'ok' | 'error' } | null;
   /** The About panel is open. */
   about: boolean;
+  /** A newer release found on GitHub. */
+  update: UpdateInfo | null;
+  /** The update is downloading and installing; Logbook restarts when it's done. */
+  updating: boolean;
+  /** The What's New dialog is open with this. */
+  whatsNew: WhatsNew | null;
   refresh: () => Promise<void>;
   reindex: () => Promise<void>;
   setQuery: (q: string) => void;
@@ -72,6 +86,11 @@ interface AppState {
   clearSelection: () => void;
   toggleTheme: () => void;
   setAbout: (open: boolean) => void;
+  /** Asks GitHub for a newer version. `manual` (from About) reports the outcome; otherwise failures stay quiet. */
+  checkUpdate: (manual?: boolean) => Promise<UpdateInfo | null>;
+  installUpdate: () => Promise<void>;
+  setWhatsNew: (whatsNew: WhatsNew | null) => void;
+  openReleasePage: (version: string) => Promise<void>;
   resume: (id: string) => Promise<void>;
   copyResume: (id: string) => Promise<void>;
   openFolder: (path: string) => Promise<void>;
@@ -102,6 +121,9 @@ export const useApp = create<AppState>()((set, get) => ({
   theme: 'dark',
   notice: null,
   about: false,
+  update: null,
+  updating: false,
+  whatsNew: null,
 
   refresh: async () => {
     try {
@@ -194,6 +216,46 @@ export const useApp = create<AppState>()((set, get) => ({
   },
 
   setAbout: (about) => set({ about }),
+
+  checkUpdate: async (manual = false) => {
+    try {
+      const update = await api.checkUpdate();
+      if (update) set({ update });
+      if (manual) {
+        if (update) set({ about: false, whatsNew: { ...update, mode: 'update' } });
+        else get().notify('Logbook is up to date');
+      }
+      return update;
+    } catch (e) {
+      if (manual) get().notify(msg(e), 'error');
+      else console.warn(e);
+      return null;
+    }
+  },
+
+  installUpdate: async () => {
+    const { update, updating } = get();
+    if (!update || updating) return;
+    set({ updating: true });
+    saveWhatsNew(update);
+    try {
+      // On Windows this doesn't return: the installer closes Logbook and starts the new version.
+      await api.installUpdate();
+    } catch (e) {
+      set({ updating: false });
+      get().notify(msg(e), 'error');
+    }
+  },
+
+  setWhatsNew: (whatsNew) => set({ whatsNew }),
+
+  openReleasePage: async (version) => {
+    try {
+      await api.openReleasePage(version);
+    } catch (e) {
+      get().notify(msg(e), 'error');
+    }
+  },
 
   resume: async (id) => {
     try {

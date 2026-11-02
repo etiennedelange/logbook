@@ -6,6 +6,12 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Updates.** Logbook checks GitHub for new releases. When one is out, **Update** appears in the
+  toolbar, and **What's New** shows its release notes. **Update now** installs it and restarts Logbook,
+  which then shows what changed once. **About → Check for updates** checks right away. Coming from 0.1.1,
+  download this installer once by hand; after that Logbook updates itself.
+
 ## [0.1.1] - 2026-11-02
 
 ### Fixed
