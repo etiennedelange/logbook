@@ -21,6 +21,16 @@ const keys = [
   ['?', 'about'],
 ];
 
+// What the Copilot CLI's own tools do, per GitHub's docs (linked under the table). Keep the claims checkable.
+const compared = [
+  ['Matches', 'Session names', 'Everything in your sessions', 'Session names, repositories and every message'],
+  ['Results', 'A list of sessions', 'A written summary from the model', 'A list of sessions, each with the matching snippet'],
+  ['Repository', 'Sorted by how well it matches the current folder', 'All repositories at once', 'Pick one in the sidebar'],
+  ['Date range', 'None', 'Written into the prompt: “for the last 3 days”', 'Today, 7 days or 30 days, on 2–4'],
+  ['Session text sent to a model', 'No', 'It may be', 'No'],
+  ['Where you use it', 'Inside a Copilot session', 'Inside a Copilot session', 'Its own window; Enter resumes in the session’s folder'],
+];
+
 // Phone widths get crops of the list pane: the whole window there would shrink its text to ~3px.
 const narrow = '(max-width: 40rem)';
 ---
@@ -32,6 +42,7 @@ const narrow = '(max-width: 40rem)';
   <header class="top">
     <a class="wordmark" href="/">logbook</a>
     <nav aria-label="Primary">
+      <a href="#compared">Compared</a>
       <a href="#how">How it works</a>
       <a href={repo}>Source</a>
     </nav>
@@ -136,6 +147,47 @@ const narrow = '(max-width: 40rem)';
         <video muted playsinline preload="none" width="1920" height="1040" aria-hidden="true" hidden></video>
         <button class="replay" type="button" hidden>Replay</button>
       </figure>
+    </section>
+
+    <section id="compared" class="compared" aria-labelledby="c">
+      <div class="compared-text">
+        <h2 id="c">Next to the CLI’s own tools</h2>
+        <p>
+          The Copilot CLI finds old sessions two ways: the <code>/resume</code> picker, which matches session names,
+          and <code>/chronicle search</code>, which has the model search your history and write a summary. Logbook is
+          for when you remember a word, a repository or roughly when, and want the session itself back.
+        </p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <td></td>
+              <th scope="col"><code>/resume</code> picker</th>
+              <th scope="col"><code>/chronicle search</code></th>
+              <th scope="col">Logbook</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              compared.map(([row, picker, chronicle, logbook]) => (
+                <tr>
+                  <th scope="row">{row}</th>
+                  <td data-label="/resume picker">{picker}</td>
+                  <td data-label="/chronicle search">{chronicle}</td>
+                  <td data-label="Logbook" class="ours">{logbook}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="source">
+        The CLI columns follow GitHub’s docs on{' '}
+        <a href="https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/work-with-multiple-sessions">working with multiple sessions</a>{' '}
+        and <a href="https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/chronicle">session data</a>, as of
+        November 2026.
+      </p>
     </section>
 
     <section id="how" class="how" aria-labelledby="h">
@@ -460,6 +512,109 @@ const narrow = '(max-width: 40rem)';
   }
   .replay[hidden] {
     display: none;
+  }
+
+  .compared {
+    margin-bottom: 4.5rem;
+  }
+  .compared-text {
+    max-width: 44rem;
+    margin-bottom: 1.5rem;
+  }
+  .compared-text p {
+    margin: 0;
+    color: var(--fg-muted);
+    text-wrap: pretty;
+  }
+  .compared table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-small);
+    line-height: var(--leading-ui);
+  }
+  .compared th,
+  .compared td {
+    text-align: left;
+    vertical-align: top;
+    padding: 0.75rem 1rem 0.75rem 0;
+    border-top: 1px solid var(--border);
+  }
+  .compared thead th,
+  .compared thead td {
+    border-top: none;
+    font-weight: var(--weight-ui);
+    color: var(--fg-subtle);
+  }
+  .compared thead th:last-child {
+    color: var(--fg);
+  }
+  .compared tbody th {
+    width: 22%;
+    font-weight: var(--weight-ui);
+  }
+  .compared tbody tr:last-child > * {
+    border-bottom: 1px solid var(--border);
+  }
+  .compared td {
+    color: var(--fg-muted);
+  }
+  /* Logbook's own column: full-strength text on a faint tint, the only emphasis the table has. */
+  .compared .ours,
+  .compared thead th:last-child {
+    color: var(--fg);
+    background: var(--bg-elevated);
+    padding-inline: 1rem;
+  }
+  .compared th code {
+    background: none;
+    padding: 0;
+  }
+  .source {
+    margin: 0.75rem 0 0;
+    color: var(--fg-subtle);
+    font-size: var(--text-small);
+  }
+  /* Phones: one card per row, each answer labelled with its column. */
+  @media (max-width: 40rem) {
+    .compared thead {
+      display: none;
+    }
+    .compared tr,
+    .compared th,
+    .compared td {
+      display: block;
+    }
+    .compared tbody tr {
+      padding-block: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+    .compared tbody tr:last-child {
+      border-bottom: 1px solid var(--border);
+    }
+    .compared tbody tr:last-child > * {
+      border-bottom: none;
+    }
+    .compared tbody th {
+      width: auto;
+      border: none;
+      padding: 0 0 0.5rem;
+    }
+    .compared td {
+      border: none;
+      padding: 0.25rem 0;
+      display: grid;
+      grid-template-columns: 9.5rem minmax(0, 1fr);
+      gap: 0.75rem;
+    }
+    .compared td::before {
+      content: attr(data-label);
+      color: var(--fg-subtle);
+    }
+    .compared .ours {
+      padding: 0.35rem 0.5rem;
+      margin-inline: -0.5rem;
+      border-radius: var(--radius-sm);
+    }
   }
 
   .how {
