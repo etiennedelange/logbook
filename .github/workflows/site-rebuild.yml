@@ -2,8 +2,9 @@ name: Rebuild site on release
 
 # Workers Builds deploys the site (site/, the logbook-site Worker) from its GitHub link on pushes to main
 # that touch the site or its screenshots. The download button points at the installer of the version in
-# src-tauri/tauri.conf.json, which only exists once its draft release is published, so rebuild then too.
-# Publishing is done by hand, so `release: published` fires.
+# src-tauri/tauri.conf.json, which only exists once its release is published, so rebuild then too.
+# release.yml starts this when it has published a release (its own `release: published` event doesn't
+# fire, being made with the job's token); `release: published` covers one published by hand.
 on:
   release:
     types: [published]

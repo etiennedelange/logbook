@@ -32,6 +32,8 @@ jobs:
       # `build` runs `vp check` (format, lint, typecheck) and then the Vite build.
       - run: pnpm --filter logbook-ui build
       - run: pnpm --filter logbook-ui test
+      # The release scripts in tools/release (ship.mjs, changelog.mjs).
+      - run: pnpm test:tools
 
   rust:
     # Windows is the target platform (NSIS bundle); Linux matches the dev container.

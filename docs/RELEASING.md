@@ -1,38 +1,83 @@
 # Releasing
 
-A release is a version bump, a tag and one click. Everything between is automated.
+A release is one command, or one button on GitHub. Everything after it is automated. Ported from the notes
+repo's release flow.
+
+## Day to day
+
+Add a line under `[Unreleased]` in `CHANGELOG.md`, in the same PR, for anything a user would notice. Those
+lines become the top of the release notes. Label the PR `feature` or `bug` to sort it in GitHub's list of
+merged PRs below them (`.github/release.yml`), or `skip-changelog` to leave it out. Squash and merge, so
+the PR title becomes the commit subject on `main` and a line in that list.
 
 ## Cut a release
 
 ```bash
-node tools/release/version.mjs minor      # or patch, major, or an exact 0.3.0
-pnpm screenshots                          # only if the UI changed since the last release
-git commit -am "Release v0.2.0"
-git push                                  # CI must pass on main first
-git tag v0.2.0 && git push origin v0.2.0
+pnpm screenshots      # only if the UI changed since the last release; commit them first
+pnpm release          # the next patch: v0.2.0 -> 0.2.1
+pnpm release 0.3.0    # any other version (the first release needs one: pnpm release 0.1.0)
 ```
 
-1. **`release.yml`** checks that the tag and all seven version fields agree, builds the NSIS installer on
-   Windows, and attaches `Logbook_<version>_x64-setup.exe` to a **draft** release with generated notes.
-2. Open the draft on GitHub, read the notes, then **Publish release**.
-3. Publishing triggers **`site-rebuild.yml`**, which calls the Workers Builds deploy hook to rebuild the
-   site. The site's download button points at
-   `releases/download/v<version>/Logbook_<version>_x64-setup.exe`, so it only works once the release is
-   published. (Workers Builds also deploys the site on pushes to `main` that touch it, through its GitHub
-   link.)
+`tools/release/ship.mjs` checks first: no uncommitted changes to tracked files, `gh` signed in, the version
+not tagged yet and not older than the newest tag, and entries under the CHANGELOG's `[Unreleased]`. The
+question before anything happens shows which version it picked. After you confirm, it:
 
-A tag containing `-` (for example `v0.3.0-rc.1`) is marked as a pre-release.
+1. Branches `release/<version>` from `origin/main`, sets all seven version fields (`version.mjs`), dates
+   the `[Unreleased]` entries as `## [<version>] - <date>`, commits "Release <version>" (signed, if your
+   git signs commits) and pushes.
+2. Opens the PR "Release <version>" with the `skip-changelog` label and turns on squash auto-merge.
+3. Follows the PR's CI run live with `gh run watch`, waits for the auto-merge, tags the merge commit
+   `v<version>`, pushes the tag, and switches you back to an up-to-date `main`.
+4. Follows the Release workflow and prints the release page.
+
+Ctrl+C is safe at any point. Run the same command again and it carries on from where it stopped,
+including after the tag is pushed: if the newest tag has no GitHub Release yet, a bare `pnpm release`
+follows that tag's Release run instead of starting the next patch. `--yes` skips the question. If CI fails,
+fix it on the release branch and run it again.
+
+### Cut a release from GitHub
+
+**Actions → Cut release → Run workflow** (`cut-release.yml`) does the same without your machine, so it
+also works from a phone or a Claude session. Leave the version empty for the next patch. It runs
+`ship.mjs --yes --no-follow` on `main`, so the checks, the resuming and the PR are the same; it stops once
+the tag is pushed, and the Release run takes over. The release commit is authored by whoever started the
+run (unsigned, but it's squashed into `main` anyway).
+
+It pushes and opens the PR with the `RELEASE_TOKEN` secret, a fine-grained personal access token limited
+to this repo, with **Contents**, **Pull requests** and **Issues** set to read and write (Issues for the
+`skip-changelog` label). The job's own `GITHUB_TOKEN` can't do this: a PR or tag it creates starts no
+workflows, so CI would never report on the PR and `release.yml` would never run. The token expires after
+a year at most; renew it under **Settings → Developer settings → Fine-grained tokens** and run
+`gh secret set RELEASE_TOKEN` again. Until then the run fails at its first step.
+
+### What the tag starts
+
+1. **`release.yml`** checks that the tag is on `main` and agrees with all seven version fields, builds the
+   NSIS installer on Windows, and publishes the GitHub Release with `Logbook_<version>_x64-setup.exe`.
+   The notes are the CHANGELOG's section for the version, followed by GitHub's list of merged PRs.
+2. It then starts **`site-rebuild.yml`**, which calls the Workers Builds deploy hook to rebuild the site.
+   The site's download button points at `releases/download/v<version>/Logbook_<version>_x64-setup.exe`,
+   so it only works once the release exists. (A release made with the job's own token doesn't fire the
+   `release: published` event that `site-rebuild.yml` also listens for. Workers Builds also deploys the
+   site on pushes to `main` that touch it, through its GitHub link.)
+
+A version with a pre-release part (`0.3.0-rc.1`) is published as a pre-release and doesn't rebuild the
+site. If the Release run fails, fix the cause and rerun it from the Actions tab; if the fix needs code,
+release a new patch version instead.
 
 ## The version
 
 `src-tauri/tauri.conf.json` is the source of truth, because the installer is named from it. The version also
 lives in `package.json`, `ui/package.json`, `src-tauri/Cargo.toml`, `core/Cargo.toml` and `Cargo.lock`
-(two entries). `tools/release/version.mjs` writes all seven; `--check` fails if any disagree.
+(two entries). `tools/release/version.mjs` writes all seven; `--check` fails if any disagree. `pnpm release`
+sets them for you; `version.mjs` on its own is for checking, or for a version change outside a release.
 
 ## One-time setup
 
 | What | Where |
 |------|-------|
+| Repository settings: squash merge only, auto-merge, head branches deleted after merging, rulesets for `main` (PRs only, CI must pass) and `v*` tags (can't be moved or deleted), and the release-notes labels | `tools/release/github-settings.sh`, once after `gh auth login`, and again after changing it. Its required checks are CI's job names, so rename them together |
+| `RELEASE_TOKEN` for the Cut release workflow | fine-grained token, see above; `gh secret set RELEASE_TOKEN` |
 | Worker `logbook-site` (static assets, `site/wrangler.jsonc`), linked to this repo | first `wrangler deploy` from `site/` creates it; then the Worker's Settings > Build > Connect |
 | Build settings: root directory `site`, build command `pnpm build`, deploy command `npx wrangler deploy`; watch paths `site/*` and `docs/screenshots/*`, so a version bump doesn't publish a download link before its release | the Worker's Settings > Build |
 | Build variable `SITE_URL` (canonical and OG URLs), now `https://logbook-site.etiennedelange.workers.dev` | the Worker's Settings > Build > Variables and secrets |
@@ -45,5 +90,3 @@ lives in `package.json`, `ui/package.json`, `src-tauri/Cargo.toml`, `core/Cargo.
 - **No auto-update.** Users download the next installer themselves. Tauri's updater needs a signing keypair;
   deferred.
 - **Windows only.** `bundle.targets` is `nsis`, and Resume launches `wt.exe` or `cmd`.
-- **A private repository has private releases.** The download link 404s for anyone not signed in with
-  access. Make the repository public before announcing the site.

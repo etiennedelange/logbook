@@ -6,7 +6,9 @@
     "tauri": "tauri",
     "mock:web": "pnpm --dir ui dev:mock",
     "screenshots": "pnpm --dir tools/screenshots screenshots",
-    "site-assets": "pnpm --dir tools/screenshots site-assets"
+    "site-assets": "pnpm --dir tools/screenshots site-assets",
+    "release": "node tools/release/ship.mjs",
+    "test:tools": "node --test tools/release/"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.4"

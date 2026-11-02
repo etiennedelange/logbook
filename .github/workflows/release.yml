@@ -1,8 +1,9 @@
 name: Release
 
-# Push a tag like v0.2.0 (see docs/RELEASING.md). The Windows installer is built and attached to a
-# DRAFT GitHub release with generated notes. Publishing the draft is the human step: it makes the
-# download link live and triggers the site deploy.
+# A version tag like v0.2.0 on main (pushed by `pnpm release` or the Cut release workflow; see
+# docs/RELEASING.md) builds the Windows installer and publishes a GitHub Release with it. The notes
+# are the CHANGELOG's section for the version, then GitHub's list of merged PRs (.github/release.yml).
+# A tag containing `-` (v0.3.0-rc.1) becomes a pre-release.
 on:
   push:
     tags: ['v*']
@@ -19,6 +20,8 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+    outputs:
+      notes: ${{ steps.notes.outputs.notes }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -27,19 +30,40 @@ jobs:
         with:
           node-version: lts/*
           package-manager-cache: false
+      # Only merged, CI-checked commits get released. "behind" or "identical" means the tag is on main.
+      - name: Tag is on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          status=$(gh api "repos/$GITHUB_REPOSITORY/compare/main...$(git rev-parse HEAD)" --jq .status)
+          if [ "$status" != behind ] && [ "$status" != identical ]; then
+            echo "::error::$TAG is not on main (compared with main: $status). Tag a commit on main."
+            exit 1
+          fi
       # The tag, package.json, tauri.conf.json, both Cargo.tomls and Cargo.lock must all agree,
       # or the installer would be named for one version and the tag say another.
       - name: Tag matches every version field
         env:
           TAG: ${{ github.ref_name }}
         run: node tools/release/version.mjs --check "$TAG"
+      - name: Release notes from the CHANGELOG
+        id: notes
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          {
+            echo "notes<<CHANGELOG_EOF"
+            node tools/release/changelog.mjs notes "$TAG"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
 
   windows:
     needs: verify
     runs-on: windows-latest
     timeout-minutes: 60
     permissions:
-      contents: write # create the draft release and upload the installer
+      contents: write # create the release and upload the installer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -58,7 +82,8 @@ jobs:
           toolchain: stable
       # Only the app's workspace packages; the site and screenshot tool aren't part of the installer.
       - run: pnpm install --frozen-lockfile --filter logbook-ui --filter .
-      # beforeBuildCommand (tauri.conf.json) runs the UI's check + build.
+      # beforeBuildCommand (tauri.conf.json) runs the UI's check + build. releaseBody goes above
+      # GitHub's generated notes.
       - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -66,6 +91,23 @@ jobs:
           tauriScript: pnpm tauri
           tagName: ${{ github.ref_name }}
           releaseName: Logbook ${{ github.ref_name }}
-          releaseDraft: true
+          releaseBody: ${{ needs.verify.outputs.notes }}
+          releaseDraft: false
           generateReleaseNotes: true
           prerelease: ${{ contains(github.ref_name, '-') }}
+
+  # A release made with the job's own token doesn't trigger other workflows, so site-rebuild.yml's
+  # `release: published` never fires for it; start it directly, now the installer is attached.
+  # Pre-releases don't change the site.
+  site:
+    needs: windows
+    if: ${{ !contains(github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Rebuild the site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run site-rebuild.yml --repo "$GITHUB_REPOSITORY" --ref main
