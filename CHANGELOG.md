@@ -6,6 +6,8 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-02
+
 ### Fixed
 - **Update now works behind a shared address.** It could fail with a 403 error, from GitHub's limit on
   downloads through its API per address (an office network or a VPN reaches it quickly). Updates now
