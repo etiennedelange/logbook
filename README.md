@@ -29,7 +29,7 @@ Windows installers are on the [releases page](https://github.com/etiennedelange/
 | `core/`      | Indexing and search engine (`logbook_core` lib) and `SessionService`                      |
 | `src-tauri/` | Tauri shell: commands the UI calls, background indexing, single instance                  |
 | `ui/`        | React 19 + TypeScript + Tailwind 4 + zustand, built with [Vite+](https://viteplus.dev)    |
-| `site/`      | Marketing site: Astro, static, deployed to Cloudflare Pages                               |
+| `site/`      | Marketing site: Astro, static, deployed to Cloudflare Workers (static assets)            |
 | `tools/`     | `screenshots/` (Playwright, mock data) and `release/` (version sync)                      |
 
 ### Running

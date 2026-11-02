@@ -15,9 +15,11 @@ git tag v0.2.0 && git push origin v0.2.0
 1. **`release.yml`** checks that the tag and all seven version fields agree, builds the NSIS installer on
    Windows, and attaches `Logbook_<version>_x64-setup.exe` to a **draft** release with generated notes.
 2. Open the draft on GitHub, read the notes, then **Publish release**.
-3. Publishing triggers **`site.yml`**, which rebuilds the site and deploys it to Cloudflare Pages. The
-   site's download button points at `releases/download/v<version>/Logbook_<version>_x64-setup.exe`, so it
-   only works once the release is published.
+3. Publishing triggers **`site-rebuild.yml`**, which calls the Workers Builds deploy hook to rebuild the
+   site. The site's download button points at
+   `releases/download/v<version>/Logbook_<version>_x64-setup.exe`, so it only works once the release is
+   published. (Workers Builds also deploys the site on pushes to `main` that touch it, through its GitHub
+   link.)
 
 A tag containing `-` (for example `v0.3.0-rc.1`) is marked as a pre-release.
 
@@ -31,9 +33,10 @@ lives in `package.json`, `ui/package.json`, `src-tauri/Cargo.toml`, `core/Cargo.
 
 | What | Where |
 |------|-------|
-| Cloudflare Pages project named `logbook` | `npx wrangler pages project create logbook --production-branch=main` |
-| `CLOUDFLARE_API_TOKEN` (Pages: Edit) and `CLOUDFLARE_ACCOUNT_ID` | secrets on the `cloudflare-pages` environment |
-| `SITE_URL` (for canonical and OG URLs, once the domain is decided) | repository variable |
+| Worker `logbook-site` (static assets, `site/wrangler.jsonc`), linked to this repo | first `wrangler deploy` from `site/` creates it; then the Worker's Settings > Build > Connect |
+| Build settings: root directory `site`, build command `pnpm build`, deploy command `npx wrangler deploy`; watch paths `site/*` and `docs/screenshots/*`, so a version bump doesn't publish a download link before its release | the Worker's Settings > Build |
+| Build variable `SITE_URL` (canonical and OG URLs), now `https://logbook-site.etiennedelange.workers.dev` | the Worker's Settings > Build > Variables and secrets |
+| Deploy hook for `main`, saved as the `CLOUDFLARE_DEPLOY_HOOK` secret | the Worker's Settings > Build > Deploy Hooks, then `gh secret set CLOUDFLARE_DEPLOY_HOOK` |
 
 ## Known limits
 

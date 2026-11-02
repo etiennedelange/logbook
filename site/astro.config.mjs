@@ -2,6 +2,6 @@ import { defineConfig } from 'astro/config';
 
 export default defineConfig({
   output: 'static',
-  // Set SITE_URL in the deploy workflow once the domain is decided; it feeds canonical and OG URLs.
+  // Canonical and OG URLs. SITE_URL is a build variable on the logbook-site Worker (Workers Builds).
   site: process.env.SITE_URL ?? 'http://localhost:4321',
 });
