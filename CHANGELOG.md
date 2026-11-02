@@ -6,6 +6,8 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-02
+
 ### Added
 - **Updates.** Logbook checks GitHub for new releases. When one is out, **Update** appears in the
   toolbar, and **What's New** shows its release notes. **Update now** installs it and restarts Logbook,
