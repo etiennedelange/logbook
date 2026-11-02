@@ -6,6 +6,13 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **Update now works behind a shared address.** It could fail with a 403 error, from GitHub's limit on
+  downloads through its API per address (an office network or a VPN reaches it quickly). Updates now
+  download from the release's ordinary link.
+- **Re-index shows what it found.** After **Re-index** (`r`) on a small set of sessions, the list could
+  stay as it was until the next change: a new session didn't appear and a deleted one wasn't marked.
+
 ## [0.4.0] - 2026-11-02
 
 ### Changed

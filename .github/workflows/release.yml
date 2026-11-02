@@ -97,24 +97,75 @@ jobs:
           toolchain: stable
       # Only the app's workspace packages; the site and screenshot tool aren't part of the installer.
       - run: pnpm install --frozen-lockfile --filter logbook-ui --filter .
-      # beforeBuildCommand (tauri.conf.json) runs the UI's check + build. releaseBody goes above
-      # GitHub's generated notes. The signing key makes the installer's updater signature (.sig), and
-      # the action uploads it with latest.json, whose `notes` are releaseBody alone: the in-app What's New.
-      # GitHub's "latest" skips pre-releases, so installed copies never update to one.
-      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0
+      # beforeBuildCommand (tauri.conf.json) runs the UI's check + build. The key signs the updater's
+      # copy of the installer (-setup.exe.sig). Built, collected and published the way notes and gitr
+      # do it, not with tauri-action: its latest.json sends installed copies to an api.github.com
+      # asset URL, which GitHub rate-limits per IP and then answers with 403.
+      - name: Build the installer
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          rm -rf target/release/bundle
+          pnpm tauri build --bundles nsis
+      - name: Collect the installer, its signature and latest.json
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          shopt -s nullglob
+          files=(target/release/bundle/nsis/*-setup.exe)
+          if [ ${#files[@]} -ne 1 ]; then
+            echo "::error::Expected one installer, found ${#files[@]}: ${files[*]}"
+            exit 1
+          fi
+          if [[ "${files[0]}" != *"_${version}_"* ]]; then
+            echo "::error::${files[0]} is not version $version"
+            exit 1
+          fi
+          if [ ! -f "${files[0]}.sig" ]; then
+            echo "::error::No updater signature ${files[0]}.sig"
+            exit 1
+          fi
+          mkdir -p dist-release
+          cp "${files[0]}" "${files[0]}.sig" dist-release/
+          # The in-app updater reads releases/latest/download/latest.json. Its `notes` are the
+          # CHANGELOG section alone: the in-app What's New. GitHub's "latest" skips pre-releases,
+          # so a pre-release never reaches installed copies.
+          node tools/release/updater.mjs manifest "$version" "${files[0]}" "${files[0]}.sig" > dist-release/latest.json
+          cat dist-release/latest.json
+          cd dist-release
+          sha256sum -- *.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          tauriScript: pnpm tauri
-          tagName: ${{ github.ref_name }}
-          releaseName: Logbook ${{ github.ref_name }}
-          releaseBody: ${{ needs.verify.outputs.notes }}
-          releaseDraft: false
-          generateReleaseNotes: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          uploadUpdaterJson: true
+          name: logbook-${{ github.ref_name }}-windows
+          path: dist-release/
+          if-no-files-found: error
+      # The CHANGELOG section first, then GitHub's list of merged PRs (.github/release.yml). A rerun
+      # replaces the files of the release it made.
+      - name: Publish the GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          NOTES: ${{ needs.verify.outputs.notes }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist-release/* --clobber
+            exit 0
+          fi
+          printf '%s\n' "$NOTES" > "$RUNNER_TEMP/notes.md"
+          prerelease=()
+          [[ "$TAG" == *-* ]] && prerelease=(--prerelease)
+          gh release create "$TAG" dist-release/* \
+            --verify-tag \
+            --title "Logbook $TAG" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --generate-notes \
+            "${prerelease[@]}"
 
   # A release made with the job's own token doesn't trigger other workflows, so site-rebuild.yml's
   # `release: published` never fires for it; start it directly, now the installer is attached.

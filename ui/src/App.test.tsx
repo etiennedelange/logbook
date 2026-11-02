@@ -62,6 +62,18 @@ describe('App', () => {
     expect(await screen.findByText('New one')).toBeInTheDocument();
   });
 
+  it('refetches after a re-index even when the scan finished before reindex() read the status', async () => {
+    render(<App />);
+    await screen.findAllByRole('option');
+    // A small index: the scan is done by the time reindex() asks for the status, so the store
+    // already holds generation 2 when index-updated triggers refresh().
+    vi.mocked(api.indexStatus).mockResolvedValue({ indexing: false, total: 3, scanned: 1, skipped: 2, generation: 2 });
+    vi.mocked(api.recentSessions).mockResolvedValue([one, two, session({ id: 'copilot:three', name: 'New one' })]);
+    await act(() => useApp.getState().reindex());
+    await act(() => useApp.getState().refresh());
+    expect(await screen.findByText('New one')).toBeInTheDocument();
+  });
+
   it('shows the transcript of the selected session and resumes it', async () => {
     render(<App />);
     fireEvent.click(await screen.findByText('Fix the flaky test'));

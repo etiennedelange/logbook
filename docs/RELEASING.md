@@ -54,7 +54,7 @@ a year at most; renew it under **Settings → Developer settings → Fine-graine
 
 1. **`release.yml`** checks that the tag is on `main` and agrees with all seven version fields, and that the
    updater key is set. It builds the NSIS installer on Windows and publishes the GitHub Release with
-   `Logbook_<version>_x64-setup.exe`, its updater signature (`.sig`) and `latest.json` for the in-app
+   `Logbook_<version>_x64-setup.exe`, its updater signature (`.sig`), `SHA256SUMS.txt` and `latest.json` for the in-app
    updater (below). The notes are the CHANGELOG's section for the version, followed by GitHub's list of
    merged PRs.
 2. It then starts **`site-rebuild.yml`**, which calls the Workers Builds deploy hook to rebuild the site.
@@ -71,8 +71,15 @@ release a new patch version instead.
 
 `tauri-plugin-updater` reads
 `https://github.com/etiennedelange/logbook/releases/latest/download/latest.json` (`plugins.updater` in
-`src-tauri/tauri.conf.json`). `tauri-action` writes that file and uploads it with each release. Its `notes`
+`src-tauri/tauri.conf.json`). The Release run writes that file and uploads it with each release. Its `notes`
 are the CHANGELOG section alone, which is what Logbook shows as **What's New**.
+
+The installer's `url` in it is the release's download link
+(`github.com/.../releases/download/v<version>/Logbook_<version>_x64-setup.exe`), written by
+`tools/release/updater.mjs` as notes and gitr do. Releases up to 0.4.0 were published by `tauri-action`,
+whose `latest.json` points at the REST API (`api.github.com/.../assets/<id>`) instead. Installed copies
+download without a token, and GitHub allows 60 unauthenticated API requests an hour per IP address and
+then answers 403, so **Update now** could fail behind a shared address.
 
 - Logbook checks 5 seconds after it starts and then every hour until it finds an update. It's often left
   open for days, and a single check would never see a later release. A failed check is only logged.

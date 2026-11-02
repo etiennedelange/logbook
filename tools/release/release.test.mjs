@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { changelogSection, dateUnreleased, hasNotes } from './changelog.mjs';
 import { compareVersions, newestVersion, nextPatch, versionProblem } from './ship.mjs';
+import { updaterManifest } from './updater.mjs';
 
 test('compareVersions follows semver precedence', () => {
   const ordered = [
@@ -72,4 +73,26 @@ test('dateUnreleased moves the entries under a dated heading', () => {
   // Running it again leaves it alone.
   assert.equal(dateUnreleased(dated, '0.2.0'), dated);
   assert.throws(() => dateUnreleased('# Changelog\n', '0.2.0'), /no "## \[Unreleased\]" heading/);
+});
+
+test('updaterManifest points the updater at the release download link', () => {
+  const date = new Date('2026-11-03T10:00:00Z');
+  const manifest = updaterManifest({
+    version: '0.5.0',
+    notes: '### Fixed\n- x',
+    exe: 'target/release/bundle/nsis/Logbook_0.5.0_x64-setup.exe',
+    signature: 'c2ln\n',
+    date,
+  });
+  assert.deepEqual(manifest, {
+    version: '0.5.0',
+    notes: '### Fixed\n- x',
+    pub_date: '2026-11-03T10:00:00.000Z',
+    platforms: {
+      'windows-x86_64': {
+        url: 'https://github.com/etiennedelange/logbook/releases/download/v0.5.0/Logbook_0.5.0_x64-setup.exe',
+        signature: 'c2ln',
+      },
+    },
+  });
 });
