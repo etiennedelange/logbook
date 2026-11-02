@@ -79,7 +79,8 @@ upsert_ruleset "main" '{
         "required_status_checks": [
           { "context": "ui" },
           { "context": "rust (ubuntu-latest)" },
-          { "context": "rust (windows-latest)" }
+          { "context": "rust (windows-latest)" },
+          { "context": "ui-windows" }
         ]
       }
     }
