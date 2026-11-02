@@ -6,6 +6,8 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-02
+
 ### Changed
 - **A calmer look.** The sidebar, session list and transcript each get their own shade. The session pane's
   title bar is a single line with the branch. **Resume**, copy and open folder sit in a dock under the
