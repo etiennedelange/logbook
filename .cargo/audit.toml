@@ -1,0 +1,17 @@
+# cargo audit waivers. Each one needs a reason, and goes when the reason does.
+#
+# All of these come in through Tauri's Linux backends (GTK via tao/wry/muda, D-Bus via
+# zbus) and are not in the Windows build, which is the only one Logbook ships
+# (bundle.targets = nsis). Check with:
+#   cargo tree -i <crate> --target x86_64-pc-windows-msvc
+# They clear when Tauri moves to gtk-rs 0.20+ and a maintained zbus; re-check on each
+# Tauri upgrade, and drop a waiver as soon as its crate leaves Cargo.lock.
+
+[advisories]
+ignore = [
+  "RUSTSEC-2024-0429", # glib 0.18: unsound VariantStrIter (Linux-only, gtk 0.18)
+  "RUSTSEC-2024-0370", # proc-macro-error: unmaintained (Linux-only, glib-macros 0.18)
+  "RUSTSEC-2026-0370", # zvariant: unmaintained (Linux-only, zbus via tauri-plugin-opener)
+  "RUSTSEC-2026-0371", # zbus_names: unmaintained (Linux-only, zbus via tauri-plugin-opener)
+  "RUSTSEC-2026-0372", # zvariant_derive: unmaintained (Linux-only, zbus via tauri-plugin-opener)
+]

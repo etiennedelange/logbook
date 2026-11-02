@@ -146,7 +146,7 @@ const narrow = '(max-width: 40rem)';
         folder. The Copilot CLI’s <code>session-store.db</code> is never opened.
       </p>
       <p>
-        The index is a small <code>bincode</code> file, so start-up is a read, not a scan. The core is Rust and
+        The index is a small <code>postcard</code> file, so start-up is a read, not a scan. The core is Rust and
         the window is the system WebView, via Tauri 2.
       </p>
       <h3>Keyboard</h3>

@@ -26,11 +26,12 @@ pub fn app_data_dir() -> PathBuf {
     dir
 }
 
-/// The cache file name. Bump the version whenever `index::Entry` changes shape: bincode
-/// has no schema, so an old cache must never be read as the new layout.
-const CACHE_FILE: &str = "index-v3.bin";
+/// The cache file name. Bump the version whenever `index::Entry` changes shape or the
+/// encoding changes: postcard has no schema, so an old cache must never be read as the new
+/// layout. v4 switched from bincode to postcard.
+const CACHE_FILE: &str = "index-v4.bin";
 
-/// Path to this tool's own bincode-serialized index cache.
+/// Path to this tool's own postcard-serialized index cache.
 ///
 /// Honors a `LOGBOOK_CACHE_DIR` environment variable override so tests and
 /// packaging can point at a temp directory instead of the real app data dir.
@@ -43,7 +44,7 @@ pub fn index_cache_path() -> PathBuf {
 
     let dir = app_data_dir();
     // One-time cleanup of earlier cache formats.
-    for stale in ["index.db", "index.db-shm", "index.db-wal", "index.bin", "index-v2.bin"] {
+    for stale in ["index.db", "index.db-shm", "index.db-wal", "index.bin", "index-v2.bin", "index-v3.bin"] {
         let _ = std::fs::remove_file(dir.join(stale));
     }
     dir.join(CACHE_FILE)

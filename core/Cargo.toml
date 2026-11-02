@@ -7,7 +7,7 @@ description = "Indexing and search over GitHub Copilot CLI sessions for Logbook"
 
 [dependencies]
 anyhow = "1"
-bincode = "1"
+postcard = { version = "1.1", default-features = false, features = ["use-std"] }
 chrono = { version = "0.4", features = ["clock", "serde"] }
 dirs = "7"
 serde = { version = "1", features = ["derive"] }

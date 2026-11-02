@@ -33,7 +33,7 @@ beforeEach(() => {
   vi.mocked(api.appInfo).mockResolvedValue({
     version: '0.1.0',
     sessionsDir: 'C:\\Users\\me\\.copilot\\session-state',
-    cacheFile: 'C:\\Users\\me\\AppData\\Local\\Logbook\\index-v3.bin',
+    cacheFile: 'C:\\Users\\me\\AppData\\Local\\Logbook\\index-v4.bin',
   });
   vi.mocked(api.transcript).mockResolvedValue([entry('user', 'why is it flaky?'), entry('assistant', 'A clock race.')]);
 });

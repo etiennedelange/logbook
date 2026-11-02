@@ -103,7 +103,7 @@ export function About() {
           </p>
           <Path
             label="Index"
-            value={info?.cacheFile ?? 'Logbook/index-v3.bin in your local app data folder'}
+            value={info?.cacheFile ?? 'Logbook/index-v4.bin in your local app data folder'}
             onOpen={info ? () => void openFolder(parentOf(info.cacheFile)) : undefined}
           />
         </Section>

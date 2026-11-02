@@ -12,7 +12,7 @@ Built with Tauri 2 (Rust) and React, laid out like
 - **Transcript view** with session metadata.
 - **Resume**: opens a terminal in the session's folder running `copilot --resume=<id>`
   (or **Copy** the command).
-- **Incremental indexing**: a small `bincode` cache in your local app data folder; only
+- **Incremental indexing**: a small `postcard` cache in your local app data folder; only
   sessions whose `events.jsonl` changed get re-scanned. Re-indexes when the window
   regains focus, or press `r`.
 
@@ -71,7 +71,7 @@ Optional environment variables (handy for testing against other data):
 | Variable            | Default           | Purpose                                         |
 |---------------------|-------------------|-------------------------------------------------|
 | `COPILOT_HOME`      | `~/.copilot`      | Root of the Copilot CLI's session data          |
-| `LOGBOOK_CACHE_DIR` | OS local data dir | Where this app's own `index-v3.bin` cache lives |
+| `LOGBOOK_CACHE_DIR` | OS local data dir | Where this app's own `index-v4.bin` cache lives |
 
 The app never reads `~/.copilot/session-store.db`; that SQLite file belongs to the
 Copilot CLI itself.

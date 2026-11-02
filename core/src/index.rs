@@ -39,7 +39,7 @@ impl Indexed {
     }
 }
 
-/// An in-memory index over all Copilot CLI sessions, persisted to a flat `bincode`
+/// An in-memory index over all Copilot CLI sessions, persisted to a flat `postcard`
 /// cache file. Rebuilt incrementally: a session is only re-scanned when its
 /// `events.jsonl` has changed size/timestamp since the last run. At the personal-scale
 /// data sizes involved (about a thousand sessions, tens of MB of transcript text),
@@ -56,7 +56,7 @@ impl SessionIndex {
     pub fn open(cache_path: &Path) -> Result<Self> {
         let list = std::fs::read(cache_path)
             .ok()
-            .and_then(|bytes| bincode::deserialize::<Vec<Entry>>(&bytes).ok())
+            .and_then(|bytes| postcard::from_bytes::<Vec<Entry>>(&bytes).ok())
             .unwrap_or_default();
         let entries = index_all(list).into_iter().map(|e| (e.entry.record.id.clone(), Arc::new(e))).collect();
 
@@ -67,7 +67,7 @@ impl SessionIndex {
     /// the cache, so a crash mid-write can't leave a truncated cache behind.
     pub fn flush(&self) -> Result<()> {
         let list: Vec<&Entry> = self.entries.values().map(|e| &e.entry).collect();
-        let bytes = bincode::serialize(&list)?;
+        let bytes = postcard::to_stdvec(&list)?;
         let tmp = self.path.with_extension("tmp");
         std::fs::write(&tmp, bytes)?;
         std::fs::rename(&tmp, &self.path)?;
@@ -487,5 +487,23 @@ mod tests {
         assert_eq!(idx.get("s").unwrap().name.as_deref(), Some("new"));
         assert!(idx.search(&toks("first"), false, 10).is_empty());
         assert_eq!(ids(&idx.search(&toks("second"), false, 10)), ["s"]);
+    }
+
+    #[test]
+    fn flushed_cache_reopens_with_records_fingerprints_and_text() {
+        let dir = std::env::temp_dir().join(format!("logbook-cache-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("index.bin");
+        let fp = Fingerprint { events_mtime_ms: u128::MAX - 1, events_size: 4096, yaml_mtime_ms: 1_700_000_000_000 };
+
+        let mut idx = SessionIndex::open(&path).unwrap();
+        idx.upsert(record("s", "Loans report", 3), "overdue reminder queue".into(), fp.clone());
+        idx.flush().unwrap();
+
+        let reopened = SessionIndex::open(&path).unwrap();
+        std::fs::remove_dir_all(&dir).ok();
+        assert_eq!(reopened.fingerprint("s"), Some(&fp));
+        assert_eq!(reopened.get("s").unwrap().updated_at, record("s", "", 3).updated_at);
+        assert_eq!(ids(&reopened.search(&toks("reminder"), false, 10)), ["s"]);
     }
 }

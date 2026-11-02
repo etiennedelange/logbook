@@ -184,7 +184,7 @@ export function installMock(): void {
           return {
             version: '0.1.0',
             sessionsDir: 'C:\\Users\\me\\.copilot\\session-state',
-            cacheFile: 'C:\\Users\\me\\AppData\\Local\\Logbook\\index-v3.bin',
+            cacheFile: 'C:\\Users\\me\\AppData\\Local\\Logbook\\index-v4.bin',
           };
         case 'index_status':
           return { indexing, total: seed.length, scanned: 0, skipped: seed.length, generation: 1 };
