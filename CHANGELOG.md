@@ -6,6 +6,12 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **A calmer look.** The sidebar, session list and transcript each get their own shade. The session pane's
+  title bar is a single line with the branch. **Resume**, copy and open folder sit in a dock under the
+  transcript that shows the command they run (`copilot` or `claude`) and where. Your messages are bubbles
+  on the right. The sidebar shows repositories as folders and no longer shows the index count.
+
 ## [0.3.0] - 2026-11-02
 
 ### Added

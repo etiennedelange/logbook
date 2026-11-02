@@ -58,42 +58,28 @@ export function DetailPane() {
   const title = sessionTitle(session);
   const repo = repoOf(session);
   const folder = session.cwd ?? session.gitRoot;
+  // The branch alone: the repository is already in the list row and the folder below.
+  const command = info.resume.replace('<id>', session.nativeId);
+  const where = session.branch ?? (repo ? shortRepo(repo) : '');
 
   return (
     <section aria-label="Session" data-pane="detail" className="flex min-h-0 min-w-0 flex-col">
-      <PaneHeader
-        title={title.text}
-        sub={[repo && shortRepo(repo), session.branch].filter(Boolean).join(' · ') || 'No repository'}
-        subTitle={[repo, session.branch].filter(Boolean).join(' · ') || undefined}
-        className="px-5"
-      >
-        <button
-          type="button"
-          title={
-            deleted
-              ? `${info.name} deleted this session, so it can’t be resumed`
-              : `Open a terminal here running ${info.resume} (Enter on the row)`
-          }
-          onClick={() => void resume(session.id)}
-          disabled={deleted}
-          className="flex flex-none items-center gap-[6px] rounded-md bg-accent px-[11px] py-[5px] text-[12px] font-semibold text-accent-ink hover:brightness-110 active:brightness-95 disabled:bg-btn disabled:text-mute disabled:hover:brightness-100 max-[1099px]:px-[8px]"
-        >
-          <Icon name="terminal" size={13} />
-          {/* Below 1100px the session title needs the room; the button keeps its name for screen readers. */}
-          <span className="max-[1099px]:sr-only">Resume</span>
-        </button>
-        <IconAction icon="copy" label="Copy resume command" onClick={() => void copyResume(session.id)} />
-        <span className="mx-[2px] h-4 w-px flex-none bg-line" aria-hidden="true" />
+      <PaneHeader title={title.text} className="pl-5 pr-3">
+        {where && (
+          <span
+            data-tauri-drag-region
+            title={[repo, session.branch].filter(Boolean).join(' · ')}
+            className="max-w-[40%] flex-none truncate rounded-full bg-raised px-[10px] py-[3px] font-mono text-[11px] text-soft"
+          >
+            {where}
+          </span>
+        )}
         <UpdatePill />
         <AboutButton />
         <WindowControls />
       </PaneHeader>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <Facts
-          session={session}
-          showAgent={multiAgent}
-          onOpenFolder={folder ? () => void openFolder(folder) : undefined}
-        />
+        <Facts session={session} showAgent={multiAgent} />
         {deleted && <DeletedNote session={session} />}
         <Transcript
           key={session.id}
@@ -103,29 +89,50 @@ export function DetailPane() {
           speaker={info.speaker}
         />
       </div>
+      {/* The resume dock: what Resume will run and where, with the action beside it. */}
+      <div className="flex-none px-5 pb-4 pt-2">
+        <div className="mx-auto flex max-w-[760px] items-center gap-2 rounded-[16px] border border-line bg-raised py-[7px] pl-4 pr-[7px]">
+          <code
+            className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-mute"
+            title={`${folder ? `${folder} › ` : ''}${command}`}
+          >
+            {folder && (
+              <>
+                {folder} <span aria-hidden="true">›</span>{' '}
+              </>
+            )}
+            <span className="text-soft">{command}</span>
+          </code>
+          <IconAction icon="copy" label="Copy resume command" onClick={() => void copyResume(session.id)} />
+          {folder && <IconAction icon="folder" label={`Open ${folder}`} onClick={() => void openFolder(folder)} />}
+          <button
+            type="button"
+            title={
+              deleted
+                ? `${info.name} deleted this session, so it can’t be resumed`
+                : `Open a terminal here running ${info.resume} (Enter on the row)`
+            }
+            onClick={() => void resume(session.id)}
+            disabled={deleted}
+            className="flex h-8 flex-none items-center gap-[6px] rounded-full bg-accent px-[14px] text-[12.5px] font-semibold text-accent-ink hover:brightness-110 active:brightness-95 disabled:bg-btn disabled:text-mute disabled:hover:brightness-100"
+          >
+            <Icon name="terminal" size={13} />
+            Resume
+          </button>
+        </div>
+      </div>
     </section>
   );
 }
 
-function Facts({
-  session: s,
-  showAgent,
-  onOpenFolder,
-}: {
-  session: Session;
-  showAgent: boolean;
-  onOpenFolder?: () => void;
-}) {
+function Facts({ session: s, showAgent }: { session: Session; showAgent: boolean }) {
   const top = [
     { label: 'Last active', value: dateTime(s.updatedAt) },
     { label: 'Started', value: dateTime(s.createdAt) },
     { label: 'Messages', value: String(s.messageCount) },
   ];
   const folder = s.cwd ?? s.gitRoot;
-  const paths = [
-    ...(folder ? [{ label: 'Folder', value: folder, onOpen: onOpenFolder }] : []),
-    { label: 'Session', value: s.nativeId, onOpen: undefined },
-  ];
+  const paths = [...(folder ? [{ label: 'Folder', value: folder }] : []), { label: 'Session', value: s.nativeId }];
 
   return (
     <div className="flex flex-col gap-3 border-b border-line px-5 py-4">
@@ -150,21 +157,10 @@ function Facts({
         {paths.map((f) => (
           <div key={f.label} className="contents">
             <dt className="text-[11px] text-mute">{f.label}</dt>
-            <dd className="m-0 flex min-w-0 items-center gap-2">
+            <dd className="m-0 flex min-w-0 items-center">
               <span className="min-w-0 select-all truncate font-mono text-[11.5px] text-soft" title={f.value}>
                 {f.value}
               </span>
-              {f.onOpen && (
-                <button
-                  type="button"
-                  title="Open folder"
-                  aria-label={`Open ${f.value}`}
-                  onClick={f.onOpen}
-                  className="-my-[3px] grid h-6 w-6 flex-none place-items-center rounded-md text-mute hover:bg-btn hover:text-soft"
-                >
-                  <Icon name="folder" size={13} />
-                </button>
-              )}
             </dd>
           </div>
         ))}
@@ -304,10 +300,9 @@ const Message = memo(function Message({
 
   return (
     <>
-      <div className="flex items-baseline gap-2 text-[11px]">
-        <span className={cx('font-semibold', isUser ? 'text-accent-text' : 'text-soft')}>
-          {isUser ? 'You' : speaker}
-        </span>
+      {/* Your messages are bubbles on the right, the agent's plain text on the left, so "You" goes unsaid. */}
+      <div className={cx('flex items-baseline gap-2 text-[11px]', isUser && 'justify-end')}>
+        <span className={cx('font-semibold text-soft', isUser && 'sr-only')}>{isUser ? 'You' : speaker}</span>
         {e.timestamp && (
           <time dateTime={e.timestamp} className="font-mono tabular-nums text-mute" title={dateTime(e.timestamp)}>
             {clock(e.timestamp)}
@@ -317,7 +312,7 @@ const Message = memo(function Message({
       <div
         className={cx(
           'min-w-0 break-words text-[13.5px] leading-[1.6]',
-          isUser ? 'rounded-lg bg-sel px-[14px] py-[10px] text-ink' : 'text-soft',
+          isUser ? 'max-w-[85%] self-end rounded-[18px] bg-sel px-4 py-[10px] text-ink' : 'text-soft',
         )}
       >
         {/* Messages without a match render unmarked, so a new search leaves them alone. */}
@@ -327,7 +322,10 @@ const Message = memo(function Message({
         <button
           type="button"
           onClick={() => setOverride(!open)}
-          className="self-start rounded-md px-[6px] py-[2px] text-[12px] font-medium text-accent-text hover:bg-hover"
+          className={cx(
+            'rounded-md px-[6px] py-[2px] text-[12px] font-medium text-accent-text hover:bg-hover',
+            isUser ? 'self-end' : 'self-start',
+          )}
         >
           {open ? 'Show less' : `Show full message (${Math.round(e.text.length / 1000)}k characters)`}
         </button>
@@ -360,7 +358,7 @@ function IconAction(p: { icon: IconName; label: string; onClick: () => void }) {
       title={p.label}
       aria-label={p.label}
       onClick={p.onClick}
-      className="grid h-[28px] w-[28px] flex-none place-items-center rounded-md bg-btn text-soft hover:bg-btn-hover hover:text-ink"
+      className="grid h-8 w-8 flex-none place-items-center rounded-full border border-line text-soft hover:bg-btn-hover hover:text-ink"
     >
       <Icon name={p.icon} size={14} />
     </button>

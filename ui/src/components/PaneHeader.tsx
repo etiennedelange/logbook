@@ -11,7 +11,8 @@ export function PaneHeader({
   children,
 }: {
   title: string;
-  sub: string;
+  /** A second line under the title; without it the title sits alone on one line. */
+  sub?: string;
   /** Tooltip for the subtitle, when it is a shortened form of something longer. */
   subTitle?: string;
   className?: string;
@@ -27,9 +28,11 @@ export function PaneHeader({
         <h1 data-tauri-drag-region className="truncate text-[15px] font-semibold" title={title}>
           {title}
         </h1>
-        <span data-tauri-drag-region className="truncate text-[12px] text-mute" title={subTitle}>
-          {sub}
-        </span>
+        {sub && (
+          <span data-tauri-drag-region className="truncate text-[12px] text-mute" title={subTitle}>
+            {sub}
+          </span>
+        )}
       </div>
       {children}
     </header>
