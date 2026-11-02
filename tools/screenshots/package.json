@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "screenshots": "node capture.mjs",
-    "site-assets": "node site-assets.mjs"
+    "site-assets": "node site-assets.mjs",
+    "check": "node check.mjs"
   },
   "devDependencies": {
     "playwright": "^1.64.1"

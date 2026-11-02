@@ -16,6 +16,13 @@ Published shots go to `docs/screenshots/` (listed in `PUBLISHED` in `tools/scree
 README and `site/` show them. A new view or state worth showing gets a new scene in that file, not just a
 rerun. Look at the images before committing them. Scenes use `ui/src/dev/mock.ts` data.
 
+## UI check
+
+`pnpm ui-check` (or `pnpm ui-check search agents`) clicks through every control in headless Chromium against
+the mock data and checks its state, text, focus and notices; it exits non-zero on any failure. Run it after a
+UI change. A new control or state gets a check in `tools/screenshots/check.mjs`; mock data changes may need
+its expectations (session names, resume commands) updated.
+
 ## Releasing
 
 `docs/RELEASING.md`: `pnpm release [version]`, or Actions → Cut release. Add a `CHANGELOG.md` line under

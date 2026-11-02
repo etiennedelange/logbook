@@ -18,6 +18,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { startServer, stopServer } from './server.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..', '..');
@@ -105,40 +106,6 @@ const clips = pick(Object.keys(CLIPS));
 if (scenes.length + clips.length === 0) {
   console.error(`No such scene. Scenes: ${[...Object.keys(SCENES), ...Object.keys(CLIPS)].join(', ')}`);
   process.exit(1);
-}
-
-const up = (url) => fetch(url).then((r) => r.ok, () => false);
-
-async function startServer() {
-  const url = `http://127.0.0.1:${PORT}/`;
-  // A server left over from an earlier run would serve stale code; don't silently shoot that.
-  if (await up(url)) throw new Error(`Port ${PORT} is already in use; stop whatever is serving ${url} first.`);
-  const win = process.platform === 'win32';
-  const vp = join(root, 'ui', 'node_modules', '.bin', win ? 'vp.cmd' : 'vp');
-  const proc = spawn(vp, ['dev', '--mode', 'mock', '--host', '127.0.0.1', '--port', String(PORT), '--strictPort'], {
-    cwd: join(root, 'ui'),
-    stdio: ['ignore', 'pipe', 'inherit'],
-    shell: win,
-    // Its own process group, so stopServer() takes Vite's workers down with it.
-    detached: !win,
-  });
-  for (let i = 0; i < 100; i++) {
-    if (await up(url)) return { proc, url };
-    await new Promise((r) => setTimeout(r, 300));
-  }
-  stopServer(proc);
-  throw new Error('Dev server did not start');
-}
-
-function stopServer(proc) {
-  if (process.platform === 'win32') spawn('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { stdio: 'ignore' });
-  else {
-    try {
-      process.kill(-proc.pid);
-    } catch {
-      /* already gone */
-    }
-  }
 }
 
 /** ffmpeg on PATH, else the build `playwright install` puts next to its browsers. */
@@ -247,7 +214,7 @@ await mkdir(published, { recursive: true });
 const ffmpeg = clips.length ? await findFfmpeg() : undefined;
 if (clips.length && !ffmpeg) throw new Error('No ffmpeg: run `pnpm --dir tools/screenshots exec playwright install chromium`, or put one on PATH.');
 
-const { proc, url } = await startServer();
+const { proc, url } = await startServer(PORT);
 const browser = await chromium.launch();
 try {
   const framer = await browser.newPage({ deviceScaleFactor: 2, viewport: { width: WIDTH, height: HEIGHT } });
