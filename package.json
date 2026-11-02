@@ -9,6 +9,6 @@
     "site-assets": "pnpm --dir tools/screenshots site-assets"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.12.2"
+    "@tauri-apps/cli": "^2.12.4"
   }
 }
