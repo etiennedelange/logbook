@@ -7,7 +7,7 @@
  *   pnpm e2e
  *
  * Needs tauri-driver (`cargo install tauri-driver --locked`) and the platform's driver: WebKitWebDriver
- * (Debian: webkit2gtk-driver) under a display (xvfb-run on a headless box), or msedgedriver on Windows.
+ * (Debian and Ubuntu: webkitgtk-webdriver, formerly webkit2gtk-driver) under a display (xvfb-run on a headless box), or msedgedriver on Windows.
  * LOGBOOK_APP overrides the binary. A failing test leaves a screenshot in tools/e2e/out/.
  */
 import assert from 'node:assert/strict';
