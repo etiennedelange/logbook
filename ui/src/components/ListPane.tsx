@@ -77,7 +77,7 @@ export function ListPane() {
           value={query}
           onChange={setQuery}
           label="Search sessions"
-          placeholder="Search names, repositories and transcripts"
+          placeholder="Search names, repos and transcripts"
         />
       </div>
 

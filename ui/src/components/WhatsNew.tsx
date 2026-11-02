@@ -34,7 +34,10 @@ export function WhatsNew() {
     if (!open && d.open) d.close?.();
   }, [open]);
 
-  const close = () => setWhatsNew(null);
+  // While an update installs the dialog stays put: it says what's happening until Logbook restarts.
+  const close = () => {
+    if (!updating) setWhatsNew(null);
+  };
   const offer = whatsNew?.mode === 'update';
 
   return (
@@ -42,7 +45,12 @@ export function WhatsNew() {
       ref={ref}
       aria-labelledby="whats-new-title"
       aria-describedby="whats-new-sub"
-      onClose={close}
+      onCancel={(e) => updating && e.preventDefault()}
+      onClose={() => {
+        // A browser may close the dialog on Esc despite onCancel; reopen it while updating.
+        if (updating) ref.current?.showModal?.();
+        else close();
+      }}
       onClick={(e) => e.target === e.currentTarget && close()}
       className="m-auto max-h-[min(640px,calc(100vh-48px))] w-[min(520px,calc(100vw-48px))] overflow-hidden rounded-xl border border-line bg-bg p-0 text-ink shadow-2xl backdrop:bg-black/50 open:flex open:flex-col"
     >
@@ -69,7 +77,8 @@ export function WhatsNew() {
               aria-label="Close"
               title="Close (Esc)"
               onClick={close}
-              className="grid h-[28px] w-[28px] flex-none place-items-center rounded-md text-mute hover:bg-btn hover:text-soft"
+              disabled={updating}
+              className="grid h-[28px] w-[28px] flex-none place-items-center rounded-md text-mute hover:bg-btn hover:text-soft disabled:pointer-events-none disabled:opacity-40"
             >
               <Icon name="close" size={14} />
             </button>

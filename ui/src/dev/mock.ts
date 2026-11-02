@@ -171,10 +171,27 @@ function multiply(n: number): void {
   });
 }
 
+/**
+ * States that are hard to reach by hand: `?long` adds a message long enough to start folded,
+ * `?firstrun` is the first scan of an empty index, `?loaderror` fails loading the sessions and
+ * `?transcripterror` fails reading every transcript.
+ */
+function longMessage(): string {
+  const para =
+    'The reminder handler reads the loan from its own store before it does anything, so a renewal that lands between scheduling and firing is seen. ';
+  return ['Here is the full trace of the run, step by step.', ...Array.from({ length: 16 }, () => para.repeat(2))].join(
+    '\n\n',
+  );
+}
+
 export function installMock(): void {
-  const many = Number(new URLSearchParams(location.search).get('many'));
+  const p = new URLSearchParams(location.search);
+  const many = Number(p.get('many'));
   if (many > 0) multiply(many);
-  let indexing = false;
+  if (p.has('long')) seed[0]!.t.push(entry('assistant', longMessage(), 2));
+  const firstRun = p.has('firstrun');
+  if (firstRun) seed = [];
+  let indexing = firstRun;
   mockIPC(
     (cmd, args) => {
       const a = (args ?? {}) as Record<string, string>;
@@ -196,10 +213,12 @@ export function installMock(): void {
           }, 1200);
           return null;
         case 'recent_sessions':
+          if (p.has('loaderror')) throw new Error('The index file is locked by another process.');
           return seed.map((x) => ({ ...x.s, firstPrompt: x.t.find((e) => e.role === 'user')?.text ?? null }));
         case 'search_sessions':
           return search(a.q ?? '');
         case 'get_transcript':
+          if (p.has('transcripterror')) throw new Error('events.jsonl: unexpected end of file at line 212');
           return find(a.id!)?.t ?? [];
         case 'resume_command':
           return `copilot --resume=${a.id}`;

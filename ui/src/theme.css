@@ -65,6 +65,7 @@
   --color-inset: var(--inset);
   --color-line: var(--line);
   --color-line-soft: var(--line-soft);
+  --color-c-fail: var(--c-fail);
   --color-ink: var(--ink);
   --color-soft: var(--soft);
   --color-mute: var(--mute);

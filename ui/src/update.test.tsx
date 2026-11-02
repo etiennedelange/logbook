@@ -107,6 +107,12 @@ describe('update UI', () => {
     expect(api.installUpdate).toHaveBeenCalledTimes(1);
     expect(takeWhatsNew('0.2.0')).toEqual({ version: '0.2.0', notes: next.notes });
     expect(await within(dialog).findByRole('button', { name: /updating/i, hidden: true })).toBeDisabled();
+
+    // It stays open until Logbook restarts: Close is off, and Esc or a backdrop click does nothing.
+    expect(within(dialog).getByRole('button', { name: 'Close', hidden: true })).toBeDisabled();
+    fireEvent.click(dialog);
+    fireEvent(dialog, new Event('close'));
+    expect(useApp.getState().whatsNew).not.toBeNull();
   });
 
   it('reports a failed install and lets you try again', async () => {
