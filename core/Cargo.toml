@@ -1,6 +1,6 @@
 [package]
 name = "logbook-core"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Indexing and search over GitHub Copilot CLI sessions for Logbook"
 

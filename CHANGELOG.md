@@ -6,6 +6,8 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-02
+
 ### Fixed
 - **The Windows installer builds.** 0.1.0 was tagged but its installer build failed, so it was never
   published; 0.1.1 is the first release, with everything listed under 0.1.0.
