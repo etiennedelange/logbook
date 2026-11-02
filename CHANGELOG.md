@@ -14,10 +14,6 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Kept copies.** Claude Code deletes transcripts after 30 days. Logbook keeps its own copy of each
   conversation, so a deleted session stays searchable and readable, marked "source deleted"; it can't be
   resumed.
-- **Updates.** Logbook checks GitHub for new releases. When one is out, **Update** appears in the
-  toolbar, and **What's New** shows its release notes. **Update now** installs it and restarts Logbook,
-  which then shows what changed once. **About → Check for updates** checks right away. Coming from 0.1.1,
-  download this installer once by hand; after that Logbook updates itself.
 
 ### Fixed
 - **The window's close button stays visible on hover.** It turned white on a clear background, so it
@@ -25,6 +21,14 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Session titles have more room.** The open-folder button moved next to the folder path, and in a narrow
   window **Resume** shrinks to its icon, so the title is cut short less often. The dates under it no
   longer get cut off either.
+
+## [0.2.0] - 2026-11-02
+
+### Added
+- **Updates.** Logbook checks GitHub for new releases. When one is out, **Update** appears in the
+  toolbar, and **What's New** shows its release notes. **Update now** installs it and restarts Logbook,
+  which then shows what changed once. **About → Check for updates** checks right away. Coming from 0.1.1,
+  download this installer once by hand; after that Logbook updates itself.
 
 ## [0.1.1] - 2026-11-02
 
