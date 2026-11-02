@@ -1,0 +1,11 @@
+// The site is static assets only: no Worker script, so no `main`.
+// Workers Builds deploys it from this folder (root directory `site`); the Worker's name in the dashboard
+// must match `name`, or the build fails.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "logbook-site",
+  "compatibility_date": "2026-11-02",
+  "assets": {
+    "directory": "./dist"
+  }
+}

@@ -1,0 +1,27 @@
+name: Rebuild site on release
+
+# Workers Builds deploys the site (site/, the logbook-site Worker) from its GitHub link on pushes to main
+# that touch the site or its screenshots. The download button points at the installer of the version in
+# src-tauri/tauri.conf.json, which only exists once its draft release is published, so rebuild then too.
+# Publishing is done by hand, so `release: published` fires.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  deploy-hook:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Workers Builds
+        env:
+          DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$DEPLOY_HOOK" ]; then
+            echo "::error::CLOUDFLARE_DEPLOY_HOOK secret is not set"
+            exit 1
+          fi
+          curl -fsS -X POST "$DEPLOY_HOOK"
