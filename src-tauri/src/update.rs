@@ -22,9 +22,7 @@ pub struct UpdateInfo {
 /// Asks GitHub whether a newer version is out. `None` when Logbook is up to date.
 #[tauri::command]
 pub async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
-    let found = async { app.updater()?.check().await }
-        .await
-        .map_err(|e| format!("Couldn't check for updates: {e}"))?;
+    let found = async { app.updater()?.check().await }.await.map_err(|e| format!("Couldn't check for updates: {e}"))?;
     Ok(found.map(|u| UpdateInfo {
         date: u.raw_json.get("pub_date").and_then(|d| d.as_str()).map(str::to_owned),
         notes: u.body.filter(|b| !b.trim().is_empty()),

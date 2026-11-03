@@ -1,10 +1,10 @@
 use std::path::Path;
 use std::sync::atomic::Ordering;
 
-use serde::Serialize;
 use logbook_core::dto::{SearchHitDto, SessionDto, TimelineEntryDto};
 use logbook_core::models::Agent;
 use logbook_core::source::Resume;
+use serde::Serialize;
 use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
 
@@ -70,7 +70,9 @@ pub fn app_info(app: AppHandle, state: State<'_, AppState>) -> AppInfo {
             .service
             .sources()
             .into_iter()
-            .flat_map(|(agent, roots)| roots.into_iter().map(move |r| SourceInfo { agent, dir: r.display().to_string() }))
+            .flat_map(|(agent, roots)| {
+                roots.into_iter().map(move |r| SourceInfo { agent, dir: r.display().to_string() })
+            })
             .collect(),
         cache_file: logbook_core::paths::index_cache_path().display().to_string(),
     }
@@ -118,9 +120,10 @@ pub async fn resume_session(state: State<'_, AppState>, id: String) -> CmdResult
     if session.source_deleted_at.is_some() {
         return Err("This session’s file was deleted, so it can’t be resumed".into());
     }
-    let resume = state.service.resume(&id).ok_or_else(|| {
-        format!("“{}” isn’t a valid session id, so it can’t be resumed from here", session.native_id)
-    })?;
+    let resume = state
+        .service
+        .resume(&id)
+        .ok_or_else(|| format!("“{}” isn’t a valid session id, so it can’t be resumed from here", session.native_id))?;
     launch_terminal(&resume).map_err(err)
 }
 
@@ -140,12 +143,7 @@ fn launch_terminal(resume: &Resume) -> std::io::Result<()> {
     if wt.is_ok() {
         return Ok(());
     }
-    Command::new("cmd")
-        .args(["/c", "start", "", "cmd", "/k"])
-        .args(command)
-        .current_dir(&dir)
-        .spawn()
-        .map(|_| ())
+    Command::new("cmd").args(["/c", "start", "", "cmd", "/k"]).args(command).current_dir(&dir).spawn().map(|_| ())
 }
 
 #[cfg(not(windows))]

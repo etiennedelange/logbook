@@ -14,7 +14,12 @@ fn main() -> anyhow::Result<()> {
         let search = t.elapsed();
         let t = Instant::now();
         let json = serde_json::to_string(&hits)?;
-        eprintln!("{q:>14}: {:>4} hits, search {search:?}, json {:?}, {} KB", hits.len(), t.elapsed(), json.len() / 1024);
+        eprintln!(
+            "{q:>14}: {:>4} hits, search {search:?}, json {:?}, {} KB",
+            hits.len(),
+            t.elapsed(),
+            json.len() / 1024
+        );
     }
     let t = Instant::now();
     let all = serde_json::to_string(&s.recent(usize::MAX))?;

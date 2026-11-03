@@ -100,11 +100,7 @@ fn scan_inner(events_path: &Path, want_timeline: bool) -> EventsScanResult {
             .map(|d| d.with_timezone(&Utc));
 
         let role = if event_type == "user.message" { "user" } else { "assistant" };
-        timeline.push(TimelineEntry {
-            role: role.to_string(),
-            timestamp,
-            text: content.to_string(),
-        });
+        timeline.push(TimelineEntry { role: role.to_string(), timestamp, text: content.to_string() });
     }
 
     let first_prompt = first_prompt_text.map(|text| {
@@ -112,12 +108,7 @@ fn scan_inner(events_path: &Path, want_timeline: bool) -> EventsScanResult {
         collapsed.chars().take(FIRST_PROMPT_MAX).collect()
     });
 
-    EventsScanResult {
-        searchable_text: text_parts.join("\n"),
-        message_count,
-        first_prompt,
-        timeline,
-    }
+    EventsScanResult { searchable_text: text_parts.join("\n"), message_count, first_prompt, timeline }
 }
 
 #[cfg(test)]

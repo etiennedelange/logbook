@@ -7,8 +7,21 @@ use logbook_core::{fts_query, index::SessionIndex, paths};
 use std::time::Instant;
 
 const DEFAULT_QUERIES: &[&str] = &[
-    "a", "the", "rust", "dashboard env", "what gets scheduled", "\"what gets\"", "error handling",
-    "tauri", "getspec", "pipeline yaml", "fix", "x", "release notes", "sql", "zzzzqqq",
+    "a",
+    "the",
+    "rust",
+    "dashboard env",
+    "what gets scheduled",
+    "\"what gets\"",
+    "error handling",
+    "tauri",
+    "getspec",
+    "pipeline yaml",
+    "fix",
+    "x",
+    "release notes",
+    "sql",
+    "zzzzqqq",
 ];
 
 fn main() -> anyhow::Result<()> {
@@ -17,7 +30,8 @@ fn main() -> anyhow::Result<()> {
     eprintln!("open: {:?} ({} sessions, {} with messages)", t.elapsed(), index.len(), index.listed_count());
 
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let queries: Vec<&str> = if args.is_empty() { DEFAULT_QUERIES.to_vec() } else { args.iter().map(String::as_str).collect() };
+    let queries: Vec<&str> =
+        if args.is_empty() { DEFAULT_QUERIES.to_vec() } else { args.iter().map(String::as_str).collect() };
 
     for q in queries {
         let q = q.trim();
