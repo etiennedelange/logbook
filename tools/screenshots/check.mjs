@@ -45,8 +45,8 @@ function ok(cond, what) {
 let browser;
 let base;
 
-async function open(params = {}, viewport = { width: WIDTH, height: HEIGHT }) {
-  const ctx = await browser.newContext({ viewport, permissions: ['clipboard-read', 'clipboard-write'] });
+async function open(params = {}, viewport = { width: WIDTH, height: HEIGHT }, options = {}) {
+  const ctx = await browser.newContext({ viewport, permissions: ['clipboard-read', 'clipboard-write'], ...options });
   const page = await ctx.newPage();
   const qs = new URLSearchParams({ range: 'all', ...params }).toString().replace(/=(?=&|$)/g, '');
   page.on('console', (m) => m.type() === 'error' && errors.push(`[${section} ?${qs}] ${m.text()}`));
@@ -761,6 +761,128 @@ const SECTIONS = {
       await p.keyboard.press('/');
       eq(await focused(p), 'Search sessions', 'focus');
     });
+  },
+
+  async stats() {
+    // Reduced motion: the totals show their values at once instead of counting up.
+    const still = { reducedMotion: 'reduce' };
+    const statsPane = (p) => p.locator('section[aria-label="Stats"]');
+    const stat = (p, name) => statsPane(p).locator(`[data-stat="${name}"]`);
+    const period = (p, label) => statsPane(p).getByRole('group', { name: 'Period' }).getByRole('button', { name: label });
+    let p = await open({ history: '' }, undefined, still);
+    await check('hotkey 5 opens Stats in place of the list and transcript', async () => {
+      await blur(p);
+      await p.keyboard.press('5');
+      await statsPane(p).waitFor();
+      eq(await listPane(p).count(), 0, 'list pane');
+      eq(await detail(p).count(), 0, 'detail pane');
+      const nav = rangeNav(p).getByRole('button', { name: /^Stats/ });
+      eq(await nav.getAttribute('aria-current'), 'page', 'Stats aria-current');
+      eq(await rangeNav(p).locator('[aria-current="page"]').count(), 1, 'one current item');
+    });
+    for (const [label, range] of [
+      ['Last 30 days', 'Last 30 days'],
+      ['Last 7 days', 'Last 7 days'],
+    ]) {
+      await check(`${label}: pressed, and Sessions matches the sidebar's badge`, async () => {
+        await period(p, label).click();
+        eq(await period(p, label).getAttribute('aria-pressed'), 'true', 'aria-pressed');
+        const want = await badge(rangeNav(p).getByRole('button', { name: new RegExp(range) }));
+        eq(Number(await stat(p, 'Sessions').textContent()), want, 'Sessions');
+        return `${want} sessions`;
+      });
+    }
+    await check('26 weeks: every history session counts, and the map has 26 columns of 7', async () => {
+      await period(p, '26 weeks').click();
+      const all = await badge(rangeNav(p).getByRole('button', { name: /All sessions/ }));
+      ok(Number(await stat(p, 'Sessions').textContent()) <= all, 'more than all sessions');
+      const map = statsPane(p).getByRole('img', { name: /Sessions per day over 26 weeks/ });
+      eq(await map.locator(':scope > div > div').count(), 27, 'weekday labels + 26 weeks');
+    });
+    await check('the fun-fact strip moves on when clicked', async () => {
+      const strip = statsPane(p).getByRole('button', { name: /messages in this period/ });
+      const before = await strip.innerText();
+      await strip.click();
+      const after = await statsPane(p).locator('button[title="Show another"]').innerText();
+      ok(before !== after, 'same fact');
+      ok(/2\/\d+$/.test(after.trim()), `counter: ${after}`);
+    });
+    await check('Esc leaves Stats for the list', async () => {
+      await blur(p);
+      await p.keyboard.press('Escape');
+      await listPane(p).waitFor();
+      eq(await statsPane(p).count(), 0, 'stats pane');
+    });
+    await check('/ from Stats goes to the list and focuses search', async () => {
+      await p.keyboard.press('5');
+      await statsPane(p).waitFor();
+      await p.keyboard.press('/');
+      await listPane(p).waitFor();
+      await p.waitForTimeout(50);
+      eq(await focused(p), 'Search sessions', 'focus');
+    });
+    await check('a range in the sidebar leads back to the list', async () => {
+      await blur(p);
+      await p.keyboard.press('5');
+      await rangeNav(p).getByRole('button', { name: /Last 7 days/ }).click();
+      eq(await listTitle(p), 'Last 7 days', 'list title');
+    });
+    await check('an agent opens its sessions', async () => {
+      await rangeNav(p).getByRole('button', { name: /^Stats/ }).click();
+      await statsPane(p).getByRole('region', { name: 'Agents' }).getByRole('button', { name: /Claude Code/ }).click();
+      eq(await listTitle(p), 'Claude Code', 'list title');
+    });
+    await check('a top repository opens its sessions', async () => {
+      await p.evaluate(() => document.activeElement?.blur());
+      await p.keyboard.press('5');
+      const repo = statsPane(p).getByRole('region', { name: 'Top repositories' }).getByRole('button').first();
+      const name = (await repo.innerText()).split('\n')[0].trim();
+      await repo.click();
+      eq(await listTitle(p), name, 'list title');
+    });
+    await check('the chattiest session opens its transcript', async () => {
+      await p.evaluate(() => document.activeElement?.blur());
+      await p.keyboard.press('5');
+      const hl = statsPane(p).getByRole('region', { name: 'Highlights' }).getByRole('button', { name: /Chattiest session/ });
+      const name = (await hl.innerText()).split('\n')[1].trim();
+      await hl.click();
+      eq((await detail(p).locator('h1').textContent()).trim(), name, 'detail title');
+    });
+    await p.context().close();
+
+    p = await open({ history: '', stats: '' });
+    await check('the totals count up to their values', async () => {
+      const want = await badge(rangeNav(p).getByRole('button', { name: /Last 30 days/ }));
+      await p.waitForFunction(
+        (w) => Number(document.querySelector('[data-stat="Sessions"]')?.textContent) === w,
+        want,
+        { timeout: 3000 },
+      );
+    });
+    await check('clicking the streak throws confetti, which clears', async () => {
+      await statsPane(p).getByRole('button', { name: /Current streak/ }).click();
+      ok((await statsPane(p).locator('.st-spark').count()) === 12, 'no sparks');
+      await p.waitForTimeout(1200);
+      eq(await statsPane(p).locator('.st-spark').count(), 0, 'sparks left behind');
+    });
+    await p.context().close();
+
+    p = await open({ stats: '', arrive: '' }, undefined, still);
+    await check('a session found while Stats is open: a +1 chip, and Sessions goes up', async () => {
+      const before = Number(await stat(p, 'Sessions').textContent());
+      await blur(p);
+      await p.keyboard.press('r');
+      await statsPane(p).getByRole('status').getByText('Speed up the first index').waitFor({ timeout: 3000 });
+      await p.waitForFunction((b) => Number(document.querySelector('[data-stat="Sessions"]')?.textContent) === b + 1, before);
+    });
+    await p.context().close();
+
+    p = await open({ stats: '', nosources: '' }, undefined, still);
+    await check('no sessions: says so, with no period picker', async () => {
+      await statsPane(p).getByText('No sessions yet').waitFor();
+      ok(!(await statsPane(p).getByRole('group', { name: 'Period' }).isVisible()), 'period picker shows');
+    });
+    await p.context().close();
   },
 
   async look() {

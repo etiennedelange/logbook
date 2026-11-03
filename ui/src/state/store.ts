@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { api } from '../api';
 import { sessionsById, type Range } from '../model/select';
+import type { Period } from '../model/stats';
 import type { Agent, IndexStatus, SearchHit, Session, SourceInfo, TimelineEntry, UpdateInfo } from '../types';
 import { saveWhatsNew } from '../update';
 
@@ -68,6 +69,10 @@ interface AppState {
   agent: Agent | null;
   selId: string | null;
   detail: Detail | null;
+  /** The session list and transcript, or the Stats view in their place. */
+  view: 'sessions' | 'stats';
+  /** The period the Stats view covers. */
+  statsPeriod: Period;
   theme: Theme;
   /** A short-lived confirmation or error shown at the bottom of the window. */
   notice: { text: string; tone: 'ok' | 'error' } | null;
@@ -91,6 +96,8 @@ interface AppState {
   setRange: (r: Range) => void;
   setRepo: (r: string | null) => void;
   setAgent: (a: Agent | null) => void;
+  setView: (v: 'sessions' | 'stats') => void;
+  setStatsPeriod: (p: Period) => void;
   select: (id: string) => void;
   clearSelection: () => void;
   toggleTheme: () => void;
@@ -132,6 +139,8 @@ export const useApp = create<AppState>()((set, get) => ({
   agent: null,
   selId: null,
   detail: null,
+  view: 'sessions',
+  statsPeriod: 'month',
   theme: 'dark',
   notice: null,
   about: false,
@@ -209,9 +218,12 @@ export const useApp = create<AppState>()((set, get) => ({
     void run(q, searchSeq);
   },
 
-  setRange: (range) => set({ range }),
-  setRepo: (repo) => set({ repo }),
-  setAgent: (agent) => set({ agent }),
+  // Picking a range, repository or agent shows its sessions, so from Stats they lead back to the list.
+  setRange: (range) => set({ range, view: 'sessions' }),
+  setRepo: (repo) => set({ repo, view: 'sessions' }),
+  setAgent: (agent) => set({ agent, view: 'sessions' }),
+  setView: (view) => set({ view }),
+  setStatsPeriod: (statsPeriod) => set({ statsPeriod }),
 
   select: (id) => {
     if (get().detail?.id === id) {

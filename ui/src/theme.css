@@ -287,3 +287,256 @@ mark {
     animation: none;
   }
 }
+
+/* ---- Stats view ----
+   The activity map's five shades, from empty to busiest: the accent mixed into the soft line colour. */
+:root {
+  --heat-0: var(--line-soft);
+  --heat-1: color-mix(in oklch, var(--accent) 32%, var(--line-soft));
+  --heat-2: color-mix(in oklch, var(--accent) 55%, var(--line-soft));
+  --heat-3: color-mix(in oklch, var(--accent) 78%, var(--line-soft));
+  --heat-4: var(--accent);
+}
+
+/* Arriving: tiles and rows rise in, squares pop, bars grow. `backwards` holds the start until the delay ends. */
+@keyframes st-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes st-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+@keyframes st-grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes st-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+.st-rise {
+  animation: st-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+.st-pop {
+  animation: st-pop 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  transition:
+    opacity 0.3s ease,
+    background-color 0.3s ease,
+    transform 0.15s ease;
+}
+.st-pop:hover {
+  transform: scale(1.35);
+}
+.st-grow-y {
+  transform-origin: bottom;
+  animation: st-grow-y 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  transition:
+    height 0.45s cubic-bezier(0.2, 0.7, 0.2, 1),
+    background-color 0.3s ease;
+}
+.st-grow-x {
+  transform-origin: left;
+  animation: st-grow-x 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  transition:
+    width 0.45s cubic-bezier(0.2, 0.7, 0.2, 1),
+    filter 0.2s ease;
+}
+
+/* While it's open: today glows, the current hour breathes, the streak's flame flickers. */
+@keyframes st-glow {
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+}
+@keyframes st-flash {
+  from {
+    transform: scale(1.9);
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+}
+.st-today {
+  animation:
+    st-pop 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) backwards,
+    st-glow 2.4s ease-in-out 1.6s infinite;
+}
+/* A new session today: the square flashes (it's re-keyed on each arrival, so the flash restarts). */
+.st-flash {
+  animation:
+    st-flash 0.9s cubic-bezier(0.2, 0.7, 0.2, 1),
+    st-glow 2.4s ease-in-out 0.9s infinite;
+}
+@keyframes st-breathe {
+  50% {
+    filter: brightness(1.3);
+  }
+}
+.st-grow-y.st-now {
+  outline: 1px solid color-mix(in srgb, var(--ink) 45%, transparent);
+  outline-offset: 1px;
+  animation:
+    st-grow-y 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) backwards,
+    st-breathe 2.6s ease-in-out 1.6s infinite;
+}
+@keyframes st-flicker {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  25% {
+    transform: rotate(3deg) scale(1.07);
+  }
+  50% {
+    transform: rotate(-2deg) scale(0.96);
+  }
+  75% {
+    transform: rotate(4deg) scale(1.04);
+  }
+}
+.st-flicker {
+  transform-origin: 50% 90%;
+  animation: st-flicker 1.6s ease-in-out infinite;
+}
+@keyframes st-ping {
+  to {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+.st-live::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0.6;
+  animation: st-ping 2s ease-out infinite;
+}
+@keyframes st-chip {
+  from {
+    opacity: 0;
+    transform: translateX(12px) scale(0.96);
+  }
+}
+.st-chip {
+  animation: st-chip 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes st-fade {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+}
+.st-fade {
+  display: inline-block;
+  animation: st-fade 0.5s ease;
+}
+@keyframes st-twirl {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.st-twirl {
+  animation: st-twirl 9s linear infinite;
+}
+/* A faint sheen across the activity map now and then. */
+.st-sheen {
+  position: relative;
+}
+.st-sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    color-mix(in srgb, var(--ink) 8%, transparent) 50%,
+    transparent 62%
+  );
+  background-size: 250% 100%;
+  background-position: 120% 0;
+  animation: st-sweep 10s ease-in-out 3s infinite;
+}
+@keyframes st-sweep {
+  0% {
+    background-position: 120% 0;
+  }
+  30%,
+  100% {
+    background-position: -20% 0;
+  }
+}
+.st-tile {
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease;
+}
+.st-tile:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+.st-row:hover .st-grow-x {
+  filter: brightness(1.25);
+}
+.st-ico {
+  transition: transform 0.3s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.st-hl:hover .st-ico {
+  transform: rotate(-10deg) scale(1.12);
+}
+/* The streak's confetti: twelve squares thrown outwards. */
+.st-spark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 2px;
+  animation: st-spark 0.9s cubic-bezier(0.15, 0.7, 0.3, 1) forwards;
+}
+@keyframes st-spark {
+  to {
+    transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(0.3);
+    opacity: 0;
+  }
+}
+/* The wordmark's cursor blinks while Stats is open. */
+@keyframes st-blink {
+  50% {
+    opacity: 0;
+  }
+}
+.st-on .logo-cursor {
+  animation: st-blink 1.1s steps(1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-rise,
+  .st-pop,
+  .st-grow-y,
+  .st-grow-x,
+  .st-today,
+  .st-flash,
+  .st-grow-y.st-now,
+  .st-flicker,
+  .st-live::after,
+  .st-chip,
+  .st-fade,
+  .st-twirl,
+  .st-sheen::after,
+  .st-tile,
+  .st-ico,
+  .st-spark,
+  .st-on .logo-cursor {
+    animation: none;
+    transition: none;
+  }
+  .st-spark {
+    display: none;
+  }
+}

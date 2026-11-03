@@ -10,6 +10,7 @@ const SHORTCUTS: Shortcut[] = [
   [['↑', '↓'], 'Move through sessions'],
   [['Enter'], 'Resume the selected session'],
   [['1', '4'], 'Pick a time range', true],
+  [['5'], 'Your stats'],
   [['r'], 'Re-index sessions'],
   [['Esc'], 'Close the session'],
   [['?'], 'About Logbook'],
@@ -22,7 +23,7 @@ const AGENT_SHORTCUT: Shortcut = [['Alt+1', 'Alt+2'], 'Pick an agent'];
 export function Shortcuts() {
   const sessions = useApp((s) => s.sessions);
   const multi = useMemo(() => presentAgents(sessions).length > 1, [sessions]);
-  const list = multi ? [...SHORTCUTS.slice(0, 4), AGENT_SHORTCUT, ...SHORTCUTS.slice(4)] : SHORTCUTS;
+  const list = multi ? [...SHORTCUTS.slice(0, 5), AGENT_SHORTCUT, ...SHORTCUTS.slice(5)] : SHORTCUTS;
   return (
     <dl className="m-0 grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-[9px] text-[12px]">
       {list.map(([keys, what, run]) => (

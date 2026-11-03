@@ -53,6 +53,9 @@ const SCENES = {
   // Phone-width stand-ins for the full window, whose text would be ~3px tall there.
   'search-narrow': { params: { q: 'reminder', range: 'all' }, crop: LIST_ONLY },
   'browse-narrow': { params: { range: 'all' }, crop: { ...LIST_ONLY, height: 462 } },
+  // The Stats view over 26 weeks of generated history. Still: with reduced motion every number,
+  // bar and square is at rest, not caught mid-animation.
+  stats: { params: { stats: '1', history: '1', range: 'all' }, still: true },
 };
 
 /**
@@ -91,6 +94,8 @@ const PUBLISHED = [
   'browse-narrow-light.webp',
   'whats-new-dark.webp',
   'whats-new-light.webp',
+  'stats-dark.webp',
+  'stats-light.webp',
   'search-clip-dark.webm',
   'search-clip-light.webm',
 ];
@@ -134,8 +139,12 @@ function findFfmpeg() {
   });
 }
 
-async function openScene(browser, url, params, theme) {
-  const ctx = await browser.newContext({ viewport: { width: WIDTH, height: HEIGHT }, deviceScaleFactor: 2 });
+async function openScene(browser, url, params, theme, still = false) {
+  const ctx = await browser.newContext({
+    viewport: { width: WIDTH, height: HEIGHT },
+    deviceScaleFactor: 2,
+    ...(still && { reducedMotion: 'reduce' }),
+  });
   const page = await ctx.newPage();
   await page.goto(`${url}?${new URLSearchParams({ ...params, theme })}`);
   await page.waitForSelector('#root *');
@@ -221,9 +230,9 @@ const browser = await chromium.launch();
 try {
   const framer = await browser.newPage({ deviceScaleFactor: 2, viewport: { width: WIDTH, height: HEIGHT } });
   for (const scene of scenes) {
-    const { params, crop } = SCENES[scene];
+    const { params, crop, still } = SCENES[scene];
     for (const theme of Object.keys(THEMES)) {
-      const { ctx, page } = await openScene(browser, url, params, theme);
+      const { ctx, page } = await openScene(browser, url, params, theme, still);
       const raw = await page.screenshot(crop ? { clip: crop } : {});
       await ctx.close();
       let shot = raw;

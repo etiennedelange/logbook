@@ -40,7 +40,9 @@ const PATHS = {
   logbook: (
     <>
       <path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
-      <path d="M9.5 9.5l2.5 2.5-2.5 2.5M13.5 14.5h2" />
+      <path d="M9.5 9.5l2.5 2.5-2.5 2.5" />
+      {/* Its own path, so the Stats view can blink it. */}
+      <path className="logo-cursor" d="M13.5 14.5h2" />
     </>
   ),
   copy: (
@@ -50,6 +52,12 @@ const PATHS = {
     </>
   ),
   folder: <path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />,
+  stats: <path d="M4 20V11M10 20V5M16 20v-6M21 20H3" />,
+  flame: <path d="M12 3c1 3 4 5 4 9a4 4 0 0 1-8 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 0-8z" />,
+  chat: <path d="M4 5h16v11H9l-5 4z" />,
+  sparkle: (
+    <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8" />
+  ),
   branch: (
     <>
       <circle cx="6" cy="6" r="2.5" />

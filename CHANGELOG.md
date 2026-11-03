@@ -6,6 +6,12 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Stats.** **Stats** in the sidebar (`5`) shows your sessions, messages, active days and current streak
+  for the last 7 days, 30 days or 26 weeks, with a day-by-day activity map, the hours you start sessions,
+  your agents and top repositories, and a few highlights. Click a repository or an agent to see its
+  sessions, or your chattiest session to open it. Sessions found while it's open arrive with a **+1**.
+
 ## [0.6.1] - 2026-11-03
 
 ### Added
