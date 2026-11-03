@@ -292,7 +292,9 @@ async function main(argv) {
   // Back to main, without the release branch (deleted on GitHub after the merge).
   git('switch', '--quiet', 'main');
   git('merge', '--quiet', '--ff-only', 'origin/main');
-  git('branch', '-D', branch);
+  // Only there if this run (or an earlier one on this checkout) made it: a run resumed after the merge,
+  // such as a re-run of Cut release on a fresh checkout, never had it.
+  if (git('branch', '--list', branch)) git('branch', '-D', branch);
 
   await followRelease(tag);
 }
