@@ -84,6 +84,19 @@ describe('Logbook against session files on disk', { timeout: 120_000, skip: proc
     assert.match(agents, /Claude Code/);
   });
 
+  step('Sources lists both agents’ folders, found on disk', async () => {
+    const invoke = (cmd, args) => window.__TAURI_INTERNALS__.invoke(cmd, args);
+    const info = await s.execAsync(invoke, 'app_info', {});
+    const byAgent = Object.fromEntries(info.sources.map((x) => [x.agent, x]));
+    assert.equal(byAgent.copilot?.dir, join(home.env.COPILOT_HOME, 'session-state'));
+    assert.equal(byAgent.claude?.dir, join(home.env.CLAUDE_CONFIG_DIR, 'projects'));
+    assert.ok(byAgent.copilot.found && byAgent.claude.found, JSON.stringify(info.sources));
+    await s.waitFor(
+      'the "2 sources" button',
+      () => [...document.querySelectorAll('aside footer button')].some((b) => b.innerText.trim() === '2 sources'),
+    );
+  });
+
   step('search finds a word that is only in a transcript, and marks it', async (t) => {
     const box = await s.find('input[type="search"]');
     t.after(() => s.escape(box)); // so a failure here doesn't leave the list filtered for the next steps

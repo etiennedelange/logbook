@@ -50,6 +50,10 @@ pub struct SourceInfo {
     pub agent: Agent,
     /// Where the agent keeps its sessions. Logbook reads these and never writes to them.
     pub dir: String,
+    /// `dir` with the home folder written as `~`, for showing.
+    pub short: String,
+    /// The folder exists. An agent that isn't installed (or never ran) has none yet.
+    pub found: bool,
 }
 
 #[derive(Serialize)]
@@ -61,7 +65,7 @@ pub struct AppInfo {
     pub cache_file: String,
 }
 
-/// What the About panel shows: the version and where Logbook reads and keeps its data.
+/// What About and the sidebar's Sources show: the version and where Logbook reads and keeps its data.
 #[tauri::command]
 pub fn app_info(app: AppHandle, state: State<'_, AppState>) -> AppInfo {
     AppInfo {
@@ -71,7 +75,12 @@ pub fn app_info(app: AppHandle, state: State<'_, AppState>) -> AppInfo {
             .sources()
             .into_iter()
             .flat_map(|(agent, roots)| {
-                roots.into_iter().map(move |r| SourceInfo { agent, dir: r.display().to_string() })
+                roots.into_iter().map(move |r| SourceInfo {
+                    agent,
+                    dir: r.display().to_string(),
+                    short: logbook_core::paths::tilde(&r),
+                    found: r.is_dir(),
+                })
             })
             .collect(),
         cache_file: logbook_core::paths::index_cache_path().display().to_string(),

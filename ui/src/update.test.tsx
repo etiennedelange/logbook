@@ -37,7 +37,7 @@ beforeEach(() => {
   vi.mocked(api.indexStatus).mockResolvedValue({ indexing: false, total: 0, scanned: 0, skipped: 0, generation: 1 });
   vi.mocked(api.appInfo).mockResolvedValue({
     version: '0.1.1',
-    sources: [{ agent: 'copilot', dir: 'C:\\s' }],
+    sources: [{ agent: 'copilot', dir: 'C:\\s', short: 'C:\\s', found: true }],
     cacheFile: 'C:\\c\\index.bin',
   });
   vi.mocked(api.checkUpdate).mockResolvedValue(null);
@@ -132,7 +132,7 @@ describe('update UI', () => {
   it('shows the installed version’s notes once after an update', async () => {
     vi.mocked(api.appInfo).mockResolvedValue({
       version: '0.2.0',
-      sources: [{ agent: 'copilot', dir: 'C:\\s' }],
+      sources: [{ agent: 'copilot', dir: 'C:\\s', short: 'C:\\s', found: true }],
       cacheFile: 'C:\\c\\i.bin',
     });
     saveWhatsNew(next);

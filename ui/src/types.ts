@@ -44,11 +44,20 @@ export interface TimelineEntry {
   text: string;
 }
 
-/** What the About panel shows (`commands::AppInfo`). */
+/** An agent's session folder (`commands::SourceInfo`), which Logbook reads and never writes to. */
+export interface SourceInfo {
+  agent: Agent;
+  dir: string;
+  /** `dir` with the home folder written as `~`, for showing. */
+  short: string;
+  /** The folder exists: the agent is installed and has run. */
+  found: boolean;
+}
+
+/** What About and the sidebar's Sources show (`commands::AppInfo`). */
 export interface AppInfo {
   version: string;
-  /** Each agent's session folder, which Logbook reads and never writes to. */
-  sources: { agent: Agent; dir: string }[];
+  sources: SourceInfo[];
   /** Logbook's own index cache. */
   cacheFile: string;
 }

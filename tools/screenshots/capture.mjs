@@ -44,6 +44,8 @@ const SCENES = {
   about: { params: { sel: '0', range: 'all', about: '1' } },
   // Two agents: Claude Code picked in the sidebar, and a session whose transcript it deleted (seed 8).
   agents: { params: { agent: 'claude', sel: '8', range: 'all' } },
+  // The sidebar's Sources popover: each agent's folder, its sessions, and the kept Claude session.
+  sources: { params: { sel: '0', range: 'all', sources: '1' } },
   // An update on offer: the toolbar pill and What's New with the release notes.
   'whats-new': { params: { sel: '0', range: 'all', whatsnew: '1' } },
   // The site's search section: the matching row and the highlighted messages, legible at its size.

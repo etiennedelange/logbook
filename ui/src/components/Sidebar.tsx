@@ -9,6 +9,7 @@ import { useApp } from '../state/store';
 import type { Agent } from '../types';
 import { Icon, type IconName } from './Icon';
 import { SearchBox } from './SearchBox';
+import { Sources } from './Sources';
 
 const RANGE_ICONS: Record<Range, IconName> = { all: 'sessions', today: 'today', week: 'week', month: 'month' };
 
@@ -155,6 +156,7 @@ export function Sidebar() {
         <span role="status" className="sr-only">
           {statusText}
         </span>
+        <Sources />
         <IconButton label="Re-index sessions (r)" onClick={() => void reindex()} disabled={indexing}>
           <Icon name="refresh" size={14} className={cx(indexing && 'animate-spin')} />
         </IconButton>
