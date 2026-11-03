@@ -1,0 +1,5 @@
+# Formatting-only commits, skipped by `git blame` (GitHub reads this file; locally run
+# `git config blame.ignoreRevsFile .git-blame-ignore-revs`).
+
+# Run cargo fmt --all
+c17cf1b1f9b41e5245ae25d3eaa9b88bd575dfd7
