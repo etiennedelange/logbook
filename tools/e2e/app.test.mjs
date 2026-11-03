@@ -1,13 +1,13 @@
 /**
  * End-to-end: the built app (Rust backend, Tauri IPC and the React UI together) against session files on
- * disk, driven through tauri-driver. `pnpm ui-check` covers the UI in depth against mock data; this
- * covers the path the mock skips: reading real files, indexing, searching and reading transcripts.
+ * disk, driven over WebView2's DevTools protocol (cdp.mjs). `pnpm ui-check` covers the UI in depth against
+ * mock data; this covers the path the mock skips: reading real files, indexing, searching and reading
+ * transcripts.
  *
  *   pnpm tauri build --debug --no-bundle   # once, and after a change
  *   pnpm e2e
  *
- * Needs tauri-driver (`cargo install tauri-driver --locked`) and the platform's driver: WebKitWebDriver
- * (Debian and Ubuntu: webkitgtk-webdriver, formerly webkit2gtk-driver) under a display (xvfb-run on a headless box), or msedgedriver on Windows.
+ * Windows only, and with Logbook itself closed (a second instance hands over to it and exits).
  * LOGBOOK_APP overrides the binary. A failing test leaves a screenshot in tools/e2e/out/.
  */
 import assert from 'node:assert/strict';
@@ -16,7 +16,7 @@ import { dirname, join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { CLAUDE, COPILOT, makeHome } from './fixtures.mjs';
-import { Session, startDriver } from './webdriver.mjs';
+import { launch } from './cdp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..', '..');
@@ -25,7 +25,6 @@ const app =
 const out = join(here, 'out');
 
 let home;
-let driver;
 let s;
 
 /** Runs a test step; on failure saves a screenshot named after it before failing. */
@@ -55,19 +54,24 @@ const clickRow = (text) => {
 
 const detailText = () => document.querySelector('section[data-pane="detail"]')?.innerText ?? '';
 
-describe('Logbook against session files on disk', { timeout: 120_000 }, () => {
+describe('Logbook against session files on disk', { timeout: 120_000, skip: process.platform !== 'win32' && 'Windows only' }, () => {
   before(async () => {
     assert.ok(existsSync(app), `no app at ${app}: run pnpm tauri build --debug --no-bundle first`);
     rmSync(out, { recursive: true, force: true });
     home = makeHome();
-    driver = await startDriver({ env: home.env });
-    s = await Session.start(driver.base, app);
+    // WebView2's profile goes in the throwaway home too.
+    s = await launch(app, { env: { ...home.env, WEBVIEW2_USER_DATA_FOLDER: join(home.root, 'webview2') } });
   });
 
   after(async () => {
-    await s?.quit().catch(() => {});
-    driver?.proc.kill();
-    if (home) rmSync(home.root, { recursive: true, force: true });
+    s?.quit();
+    // WebView2's processes hold its profile for a moment after the app is killed. A temp folder left
+    // behind isn't a test failure.
+    try {
+      if (home) rmSync(home.root, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+    } catch (e) {
+      console.warn(`left ${home.root}: ${e.message}`);
+    }
   });
 
   step('indexes the Copilot and Claude Code sessions it finds', async () => {
@@ -106,12 +110,12 @@ describe('Logbook against session files on disk', { timeout: 120_000 }, () => {
 
   step('the backend builds each agent’s resume command', async () => {
     const invoke = (cmd, args) => window.__TAURI_INTERNALS__.invoke(cmd, args);
-    const sessions = await s.execAsync(invoke, 'recent_sessions', {});
+    const sessions = await s.exec(invoke, 'recent_sessions', {});
     const byAgent = Object.fromEntries(sessions.map((x) => [x.agent, x]));
     assert.equal(byAgent.copilot?.nativeId, COPILOT.id);
     assert.equal(byAgent.claude?.nativeId, CLAUDE.id);
-    const copilot = await s.execAsync(invoke, 'resume_command', { id: byAgent.copilot.id });
-    const claude = await s.execAsync(invoke, 'resume_command', { id: byAgent.claude.id });
+    const copilot = await s.exec(invoke, 'resume_command', { id: byAgent.copilot.id });
+    const claude = await s.exec(invoke, 'resume_command', { id: byAgent.claude.id });
     assert.ok(copilot.includes(`copilot --resume=${COPILOT.id}`), copilot);
     assert.ok(claude.includes(`claude --resume ${CLAUDE.id}`), claude);
   });

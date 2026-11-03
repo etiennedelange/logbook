@@ -72,6 +72,25 @@ fn show_main<R: tauri::Runtime>(app: &AppHandle<R>) {
     }
 }
 
+/// The Tauri context. Debug builds only: `LOGBOOK_E2E_DEVTOOLS_PORT` opens the WebView2 DevTools
+/// protocol on that port, so `tools/e2e` can drive the real app. (WebView2 ignores
+/// WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS, which msedgedriver relies on, because wry always passes
+/// its own arguments.)
+fn context() -> tauri::Context<tauri::Wry> {
+    #[allow(unused_mut)]
+    let mut context = tauri::generate_context!();
+    #[cfg(debug_assertions)]
+    if let Some(port) = std::env::var("LOGBOOK_E2E_DEVTOOLS_PORT").ok().and_then(|p| p.parse::<u16>().ok()) {
+        for window in &mut context.config_mut().app.windows {
+            // wry's defaults, plus the debugging port.
+            window.additional_browser_args = Some(format!(
+                "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --remote-debugging-port={port}"
+            ));
+        }
+    }
+    context
+}
+
 pub fn run() {
     tauri::Builder::default()
         // Must be first: a second launch just brings the running window forward and exits.
@@ -106,6 +125,6 @@ pub fn run() {
             reindex(app.handle());
             Ok(())
         })
-        .run(tauri::generate_context!())
+        .run(context())
         .expect("error while running Logbook");
 }
