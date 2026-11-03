@@ -6,6 +6,10 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **Check for updates says what it found.** In About, its answer ("Logbook is up to date", or why the
+  check failed) was hidden behind the About window, so the button seemed to do nothing.
+
 ## [0.6.0] - 2026-11-02
 
 ### Fixed

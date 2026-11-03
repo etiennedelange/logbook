@@ -84,9 +84,23 @@ async function notice(p) {
   return (await n.textContent()).trim();
 }
 
-/** Waits for a notice with this text (an earlier one may still be showing). */
+/**
+ * Waits for a notice with this text (an earlier one may still be showing), and checks it's on top: an
+ * open modal dialog sits in the top layer, above any z-index, and once hid About's "Check for updates"
+ * result.
+ */
 async function noticeIs(p, text) {
-  await p.locator('[aria-live="polite"] p').filter({ hasText: text }).waitFor({ timeout: 2000 });
+  const n = p.locator('[aria-live="polite"] p').filter({ hasText: text });
+  await n.waitFor({ timeout: 2000 });
+  const onTop = await n.evaluate((el) => {
+    // Hit-testing skips elements that ignore the pointer, as the notice does; count it in for this test.
+    el.style.pointerEvents = 'auto';
+    const r = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+    el.style.pointerEvents = '';
+    return el.contains(hit) || `covered by <${hit?.tagName.toLowerCase()}${hit?.id ? `#${hit.id}` : ''}>`;
+  });
+  ok(onTop === true, `notice "${text}" is ${onTop}`);
   return text;
 }
 
