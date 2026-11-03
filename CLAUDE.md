@@ -28,8 +28,8 @@ its expectations (session names, resume commands) updated.
 `pnpm e2e` drives the built app (Rust backend, IPC and UI together) over WebView2's DevTools protocol
 (`tools/e2e/cdp.mjs`; a debug build opens the port when `LOGBOOK_E2E_DEVTOOLS_PORT` is set) against fixture
 Copilot and Claude Code session files it writes to a temp folder (`tools/e2e/`). Windows only, with Logbook itself
-closed. Build first with `pnpm tauri build --debug --no-bundle`. CI runs it on Windows (except for a release: the
-`release/*` PR and its merge onto `main`), and runs `pnpm ui-check` too. A failing step leaves a screenshot in `tools/e2e/out/` (a CI artifact). Behaviour the
+closed. Build first with `pnpm tauri build --debug --no-bundle`. It's a local check, not run in CI (CI runs
+`pnpm ui-check`). A failing step leaves a screenshot in `tools/e2e/out/`. Behaviour the
 mock can't show (reading files, indexing, search, deletion) gets a step in `tools/e2e/app.test.mjs`.
 
 ## Releasing
