@@ -12,6 +12,9 @@ Built with Tauri 2 (Rust) and React, laid out like
 - **Agents**: with sessions from both agents, filter to one from the sidebar (`Alt+1`, `Alt+2`).
 - **Repositories**: filter to one repository from the sidebar.
 - **Transcript view** with session metadata.
+- **Stats** (`5`): sessions, messages and streaks for the last 7 days, 30 days or 26 weeks; a
+  day-by-day activity map; when you start sessions; agents and top repositories; and a few
+  highlights, like your chattiest session. New sessions appear live while it's open.
 - **Resume**: opens a terminal in the session's folder running `copilot --resume=<id>` or
   `claude --resume <id>` (or **Copy** the command).
 - **Incremental indexing**: a small `postcard` cache in your local app data folder; only
@@ -23,7 +26,9 @@ Built with Tauri 2 (Rust) and React, laid out like
 - **Updates**: when a new release is out, **Update** appears in the toolbar. **What's New** shows
   its release notes, and **Update now** installs it and restarts.
 
-Keyboard: `/` search · `↑`/`↓` move · `Enter` resume · `1`–`4` range · `Alt`+`1`–`2` agent · `Esc` close ·
+![Logbook's Stats view: totals, an activity map, hours, agents and repositories](docs/screenshots/stats-dark.webp)
+
+Keyboard: `/` search · `↑`/`↓` move · `Enter` resume · `1`–`4` range · `5` stats · `Alt`+`1`–`2` agent · `Esc` close ·
 `?` about · `Ctrl`+wheel zoom.
 
 ### Download

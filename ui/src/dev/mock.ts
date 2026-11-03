@@ -283,6 +283,73 @@ function multiply(n: number): void {
 }
 
 /**
+ * `?history`: about 26 weeks of older sessions behind the seed, so the Stats view has a year's worth
+ * of shape to show: busier on weekdays and afternoons, with Claude Code taking over in the last months.
+ * Seeded, so every run (and every screenshot) gets the same sessions relative to now.
+ */
+function addHistory(): void {
+  let x = 7;
+  const rnd = () => {
+    x = (x * 1103515245 + 12345) % 2147483648;
+    return x / 2147483648;
+  };
+  const names = [
+    'Tidy the release notes',
+    'Speed up the first index',
+    'Why does cargo rebuild everything?',
+    'Fix flaky upload retry',
+    'Bump Tauri plugins',
+    'Dark mode for the settings page',
+    'Retry the webhook on 502',
+    'Explain this borrow checker error',
+    'Add a test for the empty index',
+    'Reading list import from CSV',
+  ];
+  const repos = [
+    ['etienne/logbook', 'D:\\Repos\\Other\\logbook'],
+    ['etienne/logbook', 'D:\\Repos\\Other\\logbook'],
+    ['me/reading-list', 'C:\\Repos\\reading-list'],
+    ['etienne/site', 'D:\\Repos\\Other\\site'],
+    ['etienne/ado-hooks', 'D:\\Repos\\Other\\ado-hooks'],
+  ] as const;
+  const hourWeights = [1, 0, 0, 0, 0, 0, 0, 1, 3, 6, 7, 6, 3, 5, 7, 8, 6, 4, 2, 2, 3, 3, 2, 1];
+  const hourPick = () => {
+    let r = rnd() * hourWeights.reduce((a, b) => a + b, 0);
+    for (let h = 0; h < 24; h++) if ((r -= hourWeights[h]!) < 0) return h;
+    return 15;
+  };
+  const extra: typeof seed = [];
+  const today = new Date();
+  // Day 0 is left to the seed, so "Today" stays what the other scenes expect.
+  for (let day = 2; day < 26 * 7; day++) {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - day);
+    const weekend = date.getDay() === 0 || date.getDay() === 6;
+    const busy = (weekend ? 0.5 : 2.6) * (0.6 + 0.4 * (1 - day / 182));
+    const count = rnd() < 0.08 ? 0 : Math.round(rnd() * busy * 1.6);
+    for (let k = 0; k < count; k++) {
+      const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), hourPick(), Math.floor(rnd() * 60));
+      const end = new Date(start.getTime() + (10 + rnd() * 80) * 60_000);
+      const agent = rnd() < (day < 80 ? 0.2 + 0.5 * (1 - day / 80) : 0) ? 'claude' : 'copilot';
+      const [repository, cwd] = repos[Math.floor(rnd() * repos.length)]!;
+      const name = names[Math.floor(rnd() * names.length)]!;
+      const nativeId = `${String(extra.length).padStart(8, '0')}-0000-4000-8000-${String(day).padStart(12, '0')}`;
+      const over = {
+        id: `${agent}:${nativeId}`,
+        name,
+        repository,
+        branch: 'main',
+        cwd,
+        createdAt: start.toISOString(),
+        updatedAt: end.toISOString(),
+        messageCount: 4 + Math.floor(rnd() * 30),
+      };
+      extra.push({ s: agent === 'claude' ? claude(over) : session(over), t: [entry('user', name, day * D)] });
+    }
+  }
+  seed = [...seed, ...extra];
+}
+
+/**
  * States that are hard to reach by hand: `?long` adds a message long enough to start folded,
  * `?firstrun` is the first scan of an empty index, `?loaderror` fails loading the sessions and
  * `?transcripterror` fails reading every transcript.
@@ -299,6 +366,7 @@ export function installMock(): void {
   const p = new URLSearchParams(location.search);
   const many = Number(p.get('many'));
   if (many > 0) multiply(many);
+  if (p.has('history')) addHistory();
   if (p.has('long')) seed[0]!.t.push(entry('assistant', longMessage(), 2));
   const firstRun = p.has('firstrun');
   if (firstRun || p.has('nosources')) seed = [];
@@ -329,9 +397,27 @@ export function installMock(): void {
             cacheFile: 'C:\\Users\\me\\AppData\\Local\\Logbook\\index-v5.bin',
           };
         case 'index_status':
-          return { indexing, total: seed.length, scanned: 0, skipped: seed.length, generation: 1 };
+          // The generation moves only when the sessions do (`?arrive`), as the real index's does.
+          return { indexing, total: seed.length, scanned: 0, skipped: seed.length, generation: seed.length };
         case 'reindex_now':
           indexing = true;
+          // `?arrive`: each re-index finds one new session, for the Stats view's "+1".
+          if (p.has('arrive')) {
+            const n = seed.length;
+            seed.push({
+              s: claude({
+                id: `claude:aa${String(n).padStart(6, '0')}-0000-4000-8000-000000000000`,
+                name: 'Speed up the first index',
+                repository: 'etienne/logbook',
+                branch: 'main',
+                cwd: 'D:\\Repos\\Other\\logbook',
+                createdAt: ago(1),
+                updatedAt: ago(0),
+                messageCount: 2,
+              }),
+              t: [entry('user', 'The first index takes 40 seconds on 3,000 sessions. Make it faster.', 1)],
+            });
+          }
           setTimeout(() => {
             indexing = false;
             void emit('index-updated');
@@ -418,6 +504,10 @@ async function applyUrlPresets(): Promise<void> {
   if (agent === 'copilot' || agent === 'claude') useApp.getState().setAgent(agent);
   const q = p.get('q');
   if (q) useApp.getState().setQuery(q);
+  // `?stats` opens the Stats view, `?period=week|month|half` picks its period.
+  const period = p.get('period');
+  if (period === 'week' || period === 'month' || period === 'half') useApp.getState().setStatsPeriod(period);
+  if (p.has('stats')) useApp.getState().setView('stats');
   const sel = p.get('sel');
   if (sel) useApp.getState().select(seed[Number(sel)]?.s.id ?? sel);
 }

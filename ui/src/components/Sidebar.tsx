@@ -32,6 +32,8 @@ export function Sidebar() {
       reindex: s.reindex,
     })),
   );
+  const { view, setView } = useApp(useShallow((s) => ({ view: s.view, setView: s.setView })));
+  const stats = view === 'stats';
   // Counts only change at midnight or when the sessions do, not on every tick of the clock.
   const dayKey = useNow().toDateString();
   const today = useMemo(() => new Date(dayKey), [dayKey]);
@@ -57,7 +59,7 @@ export function Sidebar() {
       : `${plural(status.total, 'session', 'sessions')} indexed`;
 
   return (
-    <aside className="flex min-h-0 flex-col bg-side">
+    <aside className={cx('flex min-h-0 flex-col bg-side', stats && 'st-on')}>
       <div
         data-tauri-drag-region
         className="flex h-[60px] flex-none items-center gap-[9px] px-[18px] max-[959px]:justify-center max-[959px]:px-0"
@@ -77,10 +79,17 @@ export function Sidebar() {
             label={label}
             hotkey={hotkey}
             count={counts[key]}
-            on={range === key}
+            on={!stats && range === key}
             onClick={() => setRange(key)}
           />
         ))}
+        <NavItem
+          icon="stats"
+          label="Stats"
+          hotkey="5"
+          on={stats}
+          onClick={() => setView(stats ? 'sessions' : 'stats')}
+        />
       </nav>
 
       {agents.length > 0 && (
@@ -172,7 +181,8 @@ function NavItem(p: {
   icon: IconName;
   label: string;
   hotkey: string;
-  count: number;
+  /** None for Stats, which isn't a set of sessions. */
+  count?: number;
   on: boolean;
   onClick: () => void;
 }) {
@@ -190,7 +200,9 @@ function NavItem(p: {
     >
       <Icon name={p.icon} size={15} className={cx('flex-none', p.on ? 'text-ink' : 'text-mute')} />
       <span className={cx('flex-1', RAIL_HIDE)}>{p.label}</span>
-      <span className={cx('font-mono text-[11px] tabular-nums text-mute', RAIL_HIDE)}>{p.count}</span>
+      {p.count !== undefined && (
+        <span className={cx('font-mono text-[11px] tabular-nums text-mute', RAIL_HIDE)}>{p.count}</span>
+      )}
     </button>
   );
 }

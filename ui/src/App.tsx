@@ -5,6 +5,7 @@ import { DetailPane } from './components/DetailPane';
 import { ListPane } from './components/ListPane';
 import { Notice } from './components/Notice';
 import { Sidebar } from './components/Sidebar';
+import { StatsPane } from './components/StatsPane';
 import { WhatsNew } from './components/WhatsNew';
 import { presentAgents } from './model/agents';
 import { RANGES } from './model/select';
@@ -21,6 +22,7 @@ const REINDEX_ON_FOCUS_MS = 30_000;
 
 export default function App() {
   const refresh = useApp((s) => s.refresh);
+  const view = useApp((s) => s.view);
 
   useEffect(() => {
     void refresh();
@@ -112,6 +114,10 @@ export default function App() {
         s.setAbout(true);
         return;
       }
+      if (e.key === 'Escape' && s.view === 'stats') {
+        s.setView('sessions');
+        return;
+      }
       if (e.key === 'Escape') {
         // From the detail pane, Esc goes back to the selected row; from anywhere else it closes the detail.
         const inDetail = document.activeElement?.closest('[data-pane="detail"]');
@@ -121,12 +127,21 @@ export default function App() {
         return;
       }
       if (e.key === '/') {
-        const box = document.querySelector<HTMLInputElement>('[data-search]');
-        if (box) {
-          e.preventDefault();
-          box.focus();
-          box.select();
-        }
+        e.preventDefault();
+        const focusSearch = () => {
+          const box = document.querySelector<HTMLInputElement>('[data-search]');
+          box?.focus();
+          box?.select();
+        };
+        // From Stats, back to the list first: the search box is there once it has rendered.
+        if (s.view === 'stats') {
+          s.setView('sessions');
+          requestAnimationFrame(focusSearch);
+        } else focusSearch();
+        return;
+      }
+      if (e.key === '5') {
+        s.setView(s.view === 'stats' ? 'sessions' : 'stats');
         return;
       }
       if (e.key === 'r') void s.reindex();
@@ -141,8 +156,14 @@ export default function App() {
     // The list gives way before the detail pane does; below 960px the sidebar folds to an icon rail.
     <div className="grid h-full grid-cols-[220px_minmax(300px,2fr)_minmax(380px,3fr)] grid-rows-[minmax(0,1fr)] overflow-hidden bg-bg font-sans text-ink max-[959px]:grid-cols-[56px_minmax(260px,2fr)_minmax(340px,3fr)]">
       <Sidebar />
-      <ListPane />
-      <DetailPane />
+      {view === 'stats' ? (
+        <StatsPane />
+      ) : (
+        <>
+          <ListPane />
+          <DetailPane />
+        </>
+      )}
       <Notice />
       <About />
       <WhatsNew />
