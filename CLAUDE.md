@@ -28,8 +28,8 @@ its expectations (session names, resume commands) updated.
 `pnpm e2e` drives the built app (Rust backend, IPC and UI together) through `tauri-driver` against fixture
 Copilot and Claude Code session files it writes to a temp folder (`tools/e2e/`). Build first with
 `pnpm tauri build --debug --no-bundle`; on a headless Linux box run it under `xvfb-run -a` (needs
-`webkitgtk-webdriver` (older releases: `webkit2gtk-driver`) and `cargo install tauri-driver --locked`). CI runs it on Linux and Windows, and runs
-`pnpm ui-check` too. A failing step leaves a screenshot in `tools/e2e/out/` (a CI artifact). Behaviour the
+`webkitgtk-webdriver` (older releases: `webkit2gtk-driver`) and `cargo install tauri-driver --locked`). CI runs it on Linux and Windows (except for a
+release: the `release/*` PR and its merge onto `main`), and runs `pnpm ui-check` too. A failing step leaves a screenshot in `tools/e2e/out/` (a CI artifact). Behaviour the
 mock can't show (reading files, indexing, search, deletion) gets a step in `tools/e2e/app.test.mjs`.
 
 ## Releasing
