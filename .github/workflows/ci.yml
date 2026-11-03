@@ -77,7 +77,13 @@ jobs:
 
   # The built app (Rust backend, IPC and UI together) against session files on disk, through
   # tauri-driver: WebKitWebDriver on Linux, msedgedriver (WebView2) on Windows. See tools/e2e/app.test.mjs.
+  # Not run for a release: the release PR (release/<version>, from tools/release/ship.mjs) and its
+  # squash-merge onto main ("Release <version> (#n)") only change version fields and the CHANGELOG, and
+  # the PRs being released already ran it. Not a required check, so a skip doesn't hold up auto-merge.
   e2e:
+    if: >-
+      !startsWith(github.head_ref, 'release/') &&
+      !(github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Release '))
     strategy:
       fail-fast: false
       matrix:
