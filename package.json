@@ -1,7 +1,7 @@
 {
   "name": "logbook",
   "private": true,
-  "version": "0.6.1",
+  "version": "0.6.2",
   "scripts": {
     "tauri": "tauri",
     "mock:web": "pnpm --dir ui dev:mock",
