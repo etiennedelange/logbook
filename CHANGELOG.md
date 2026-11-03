@@ -14,6 +14,10 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   your agents and top repositories, and a few highlights. Click a repository or an agent to see its
   sessions, or your chattiest session to open it. Sessions found while it's open arrive with a **+1**.
 
+### Fixed
+- **A restored Claude Code session can be resumed again.** A transcript put back exactly as it was (from the
+  Recycle Bin, say) stayed marked "source deleted", so Logbook wouldn't resume it.
+
 ## [0.6.1] - 2026-11-03
 
 ### Added

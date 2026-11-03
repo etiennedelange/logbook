@@ -170,6 +170,11 @@ impl SessionIndex {
         self.entries.is_empty()
     }
 
+    /// The session is only Logbook's kept copy: its agent deleted the file.
+    pub fn is_source_deleted(&self, id: &str) -> bool {
+        self.entries.get(id).is_some_and(|e| e.entry.record.source_deleted_at.is_some())
+    }
+
     pub fn get(&self, id: &str) -> Option<SessionRecord> {
         self.entries.get(id).map(|e| e.entry.record.clone())
     }

@@ -85,6 +85,7 @@ fn a_deleted_transcript_is_kept() {
 
     // Claude Code deletes transcripts after `cleanupPeriodDays`.
     let saved = std::fs::read(&transcript).unwrap();
+    let modified = std::fs::metadata(&transcript).unwrap().modified().unwrap();
     std::fs::remove_file(&transcript).unwrap();
     let stats = service.rebuild().unwrap();
     assert_eq!((stats.removed, stats.source_deleted), (0, 1));
@@ -102,8 +103,10 @@ fn a_deleted_transcript_is_kept() {
     assert!(reopened.get(&id).unwrap().source_deleted_at.is_some());
     assert_eq!(reopened.transcript(&id).unwrap().len(), 4);
 
-    // And if the file comes back, it's an ordinary session again.
+    // And if the file comes back, it's an ordinary session again: even restored as it was, with the
+    // same size and modified time, so the same fingerprint as the cached one.
     std::fs::write(&transcript, saved).unwrap();
+    std::fs::File::options().write(true).open(&transcript).unwrap().set_modified(modified).unwrap();
     service.rebuild().unwrap();
     assert_eq!(service.get(&id).unwrap().source_deleted_at, None);
 

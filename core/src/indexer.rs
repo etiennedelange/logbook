@@ -84,7 +84,9 @@ fn scan(index: &SessionIndex, source: &dyn Source, agent: Agent, files: &Session
     // What the source found on disk is the session's identity, whatever its files say about
     // themselves: otherwise a session would be re-read on every run and never match its files.
     let id = agent.session_id(&files.native_id);
-    if index.fingerprint(&id) == Some(&files.fingerprint) {
+    // A kept copy whose file is back is re-read even when the file looks the same (restored from the
+    // Recycle Bin, which keeps its size and modified time): that is what clears "source deleted".
+    if index.fingerprint(&id) == Some(&files.fingerprint) && !index.is_source_deleted(&id) {
         return Some(Scanned::Unchanged(id));
     }
     let Scan { record, searchable_text, kept } = source.read(files)?;
