@@ -301,7 +301,7 @@ export function installMock(): void {
   if (many > 0) multiply(many);
   if (p.has('long')) seed[0]!.t.push(entry('assistant', longMessage(), 2));
   const firstRun = p.has('firstrun');
-  if (firstRun) seed = [];
+  if (firstRun || p.has('nosources')) seed = [];
   let indexing = firstRun;
   mockIPC(
     (cmd, args) => {
@@ -311,9 +311,20 @@ export function installMock(): void {
         case 'app_info':
           return {
             version: '0.1.0',
+            // `?nosources`: neither agent has run on this machine yet.
             sources: [
-              { agent: 'copilot', dir: 'C:\\Users\\me\\.copilot\\session-state' },
-              { agent: 'claude', dir: 'C:\\Users\\me\\.claude\\projects' },
+              {
+                agent: 'copilot',
+                dir: 'C:\\Users\\me\\.copilot\\session-state',
+                short: '~\\.copilot\\session-state',
+                found: !p.has('nosources'),
+              },
+              {
+                agent: 'claude',
+                dir: 'C:\\Users\\me\\.claude\\projects',
+                short: '~\\.claude\\projects',
+                found: !p.has('nosources'),
+              },
             ],
             cacheFile: 'C:\\Users\\me\\AppData\\Local\\Logbook\\index-v5.bin',
           };
@@ -383,7 +394,7 @@ function mockUpdate() {
   };
 }
 
-/** `?theme=light&range=week&agent=claude&q=dash&sel=<id or index>&about` set up a state directly, for screenshots. */
+/** `?theme=light&range=week&agent=claude&q=dash&sel=<id or index>&about&sources` set up a state directly, for screenshots. */
 async function applyUrlPresets(): Promise<void> {
   const p = new URLSearchParams(location.search);
   const { useApp, applyTheme } = await import('../state/store');
@@ -393,6 +404,7 @@ async function applyUrlPresets(): Promise<void> {
     useApp.setState({ theme });
   }
   if (p.has('about')) useApp.getState().setAbout(true);
+  if (p.has('sources')) useApp.getState().setSourcesOpen(true);
   if (p.has('whatsnew')) {
     const update = await useApp.getState().checkUpdate();
     if (update) {

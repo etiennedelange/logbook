@@ -1,4 +1,4 @@
-import type { Agent, Session } from '../types';
+import type { Agent, Session, SourceInfo } from '../types';
 
 export interface AgentInfo {
   key: Agent;
@@ -79,4 +79,35 @@ export function shownAgents<T extends string>(present: T[], active: T | null, ex
   if (expanded || present.length <= AGENT_ROWS) return present;
   const top = present.slice(0, AGENT_ROWS);
   return active !== null && !top.includes(active) && present.includes(active) ? [...top, active] : top;
+}
+
+/** One agent in the sidebar's Sources popover: its folders and what Logbook has from them. */
+export interface SourceRow {
+  agent: Agent;
+  dirs: SourceInfo[];
+  /** At least one of its folders exists. */
+  found: boolean;
+  /** Every session of this agent in the index, whatever the filters. */
+  count: number;
+  /** Of those, the ones whose file the agent deleted and Logbook kept. */
+  kept: number;
+}
+
+/**
+ * The backend's folders grouped by agent: agents with folders first, most sessions first (ties in
+ * `AGENTS` order, as in the sidebar), then the ones whose folders don't exist yet.
+ */
+export function sourceRows(sources: SourceInfo[], sessions: Session[]): SourceRow[] {
+  const rows = new Map<Agent, SourceRow>();
+  for (const a of AGENTS) {
+    const dirs = sources.filter((s) => s.agent === a.key);
+    if (dirs.length) rows.set(a.key, { agent: a.key, dirs, found: dirs.some((d) => d.found), count: 0, kept: 0 });
+  }
+  for (const s of sessions) {
+    const row = rows.get(s.agent);
+    if (!row) continue;
+    row.count++;
+    if (s.sourceDeletedAt) row.kept++;
+  }
+  return [...rows.values()].sort((a, b) => Number(b.found) - Number(a.found) || b.count - a.count);
 }

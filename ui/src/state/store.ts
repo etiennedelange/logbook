@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { api } from '../api';
 import { sessionsById, type Range } from '../model/select';
-import type { Agent, IndexStatus, SearchHit, Session, TimelineEntry, UpdateInfo } from '../types';
+import type { Agent, IndexStatus, SearchHit, Session, SourceInfo, TimelineEntry, UpdateInfo } from '../types';
 import { saveWhatsNew } from '../update';
 
 export type Theme = 'dark' | 'light';
@@ -73,6 +73,12 @@ interface AppState {
   notice: { text: string; tone: 'ok' | 'error' } | null;
   /** The About panel is open. */
   about: boolean;
+  /** Each agent's session folder, from the backend; null until it answers. */
+  sources: SourceInfo[] | null;
+  /** When the last index run finished (ms since the epoch), as far as this window saw. */
+  readAt: number | null;
+  /** The sidebar's Sources popover is open. */
+  sourcesOpen: boolean;
   /** A newer release found on GitHub. */
   update: UpdateInfo | null;
   /** The update is downloading and installing; Logbook restarts when it's done. */
@@ -89,6 +95,7 @@ interface AppState {
   clearSelection: () => void;
   toggleTheme: () => void;
   setAbout: (open: boolean) => void;
+  setSourcesOpen: (open: boolean) => void;
   /** Asks GitHub for a newer version. `manual` (from About) reports the outcome; otherwise failures stay quiet. */
   checkUpdate: (manual?: boolean) => Promise<UpdateInfo | null>;
   installUpdate: () => Promise<void>;
@@ -128,13 +135,24 @@ export const useApp = create<AppState>()((set, get) => ({
   theme: 'dark',
   notice: null,
   about: false,
+  sources: null,
+  readAt: null,
+  sourcesOpen: false,
   update: null,
   updating: false,
   whatsNew: null,
 
   refresh: async () => {
+    // The folders can appear (an agent installed) or move between runs, so ask again each time.
+    void Promise.resolve()
+      .then(() => api.appInfo())
+      .then(
+        (info) => set({ sources: info.sources }),
+        () => undefined,
+      );
     try {
       const status = await api.indexStatus();
+      if (!status.indexing) set({ readAt: Date.now() });
       // A re-scan that found nothing new leaves the index as it was: keep the list (and
       // everything worked out from it) rather than fetching and re-filtering it all.
       if (get().loaded && !get().error && status.generation === listedGeneration) {
@@ -225,6 +243,7 @@ export const useApp = create<AppState>()((set, get) => ({
   },
 
   setAbout: (about) => set({ about }),
+  setSourcesOpen: (sourcesOpen) => set({ sourcesOpen }),
 
   checkUpdate: async (manual = false) => {
     try {

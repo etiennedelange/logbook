@@ -440,6 +440,89 @@ const SECTIONS = {
     });
   },
 
+  async sources() {
+    const p = await open({ sel: '0' });
+    const trigger = p.locator('aside footer').getByRole('button', { name: '2 sources' });
+    const pop = p.getByRole('dialog', { name: 'Sources' });
+    await check('the footer says how many folders Logbook reads, closed at first', async () => {
+      eq(await trigger.getAttribute('aria-expanded'), 'false', 'aria-expanded');
+      ok(!(await pop.isVisible()), 'popover already open');
+    });
+    await check('clicking it lists each agent with its folder and sessions', async () => {
+      await trigger.click();
+      await pop.waitFor();
+      eq(await trigger.getAttribute('aria-expanded'), 'true', 'aria-expanded');
+      const items = (await pop.getByRole('listitem').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
+      eq(items.length, 2, 'agents');
+      ok(items.some((t) => t.startsWith('Copilot CLI') && t.includes('~\\.copilot\\session-state')), 'copilot folder');
+      ok(items.some((t) => t.startsWith('Claude Code') && t.includes('~\\.claude\\projects')), 'claude folder');
+      ok(items.some((t) => /kept after Claude Code deleted it/.test(t)), 'kept count');
+      ok((await pop.innerText()).includes('Up to date'), 'status line');
+      return items.join(' | ');
+    });
+    await check('the session counts match the sidebar badges', async () => {
+      for (const name of ['Copilot CLI', 'Claude Code']) {
+        const n = await badge(agentNav(p).getByRole('button', { name: new RegExp(name) }));
+        const text = await pop.getByRole('listitem').filter({ hasText: name }).innerText();
+        ok(text.includes(`${n} session`), `${name}: ${n} not in "${text}"`);
+      }
+    });
+    await check('Open folder works for each found folder, without an error', async () => {
+      await pop.getByRole('button', { name: 'Open the Claude Code folder' }).click();
+      ok(await pop.isVisible(), 'popover closed');
+      eq(await p.locator('[aria-live="polite"] p').count(), 0, 'notices');
+    });
+    await check('Esc closes only the popover, returning focus to its button', async () => {
+      await pop.getByRole('button', { name: 'Open the Copilot CLI folder' }).focus();
+      await p.keyboard.press('Escape');
+      ok(!(await pop.isVisible()), 'still open');
+      eq(await focused(p), 'BUTTON', 'focus');
+      ok(await trigger.evaluate((e) => e === document.activeElement), 'focus not on the trigger');
+      ok(await detail(p).locator('h1').isVisible(), 'the open session closed too');
+    });
+    await check('a click elsewhere closes it', async () => {
+      await trigger.click();
+      await pop.waitFor();
+      await listPane(p).locator('h1').click();
+      ok(!(await pop.isVisible()), 'still open');
+    });
+    await check('it stays inside the window: wide, narrow (taller footer) and at the 480px minimum height', async () => {
+      const sizes = [
+        { width: WIDTH, height: HEIGHT },
+        { width: 900, height: HEIGHT },
+        { width: 900, height: 480 },
+        { width: WIDTH, height: 480 },
+      ];
+      const seen = [];
+      for (const vp of sizes) {
+        const q = await open({ sources: '' }, vp);
+        const box = await q.getByRole('dialog', { name: 'Sources' }).boundingBox();
+        ok(box && box.y >= 0 && box.y + box.height <= vp.height, `${vp.width}x${vp.height}: ${JSON.stringify(box)}`);
+        seen.push(`${vp.width}x${vp.height} top ${Math.round(box.y)}`);
+        await q.context().close();
+      }
+      return seen.join(', ');
+    });
+    await check('narrow window: the button keeps its name as dots only', async () => {
+      const q = await open({}, { width: 900, height: HEIGHT });
+      const b = q.locator('aside footer').getByRole('button', { name: '2 sources' });
+      await b.click();
+      await q.getByRole('dialog', { name: 'Sources' }).waitFor();
+      const w = await b.evaluate((e) => e.getBoundingClientRect().width);
+      ok(w <= 32, `button ${w}px wide`);
+    });
+
+    const n = await open({ nosources: '' });
+    await check('no agent folders: "No sources", each marked Not found, nothing to open', async () => {
+      const b = n.locator('aside footer').getByRole('button', { name: 'No sources' });
+      await b.click();
+      const d = n.getByRole('dialog', { name: 'Sources' });
+      await d.waitFor();
+      eq(await d.getByText('Not found').count(), 2, 'Not found');
+      eq(await d.getByRole('button', { name: /^Open the/ }).count(), 0, 'open buttons');
+    });
+  },
+
   async about() {
     const p = await open();
     const dialog = p.getByRole('dialog', { name: 'About Logbook' });

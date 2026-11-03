@@ -32,7 +32,14 @@ beforeEach(() => {
   vi.mocked(api.indexStatus).mockResolvedValue({ indexing: false, total: 2, scanned: 0, skipped: 2, generation: 1 });
   vi.mocked(api.appInfo).mockResolvedValue({
     version: '0.1.0',
-    sources: [{ agent: 'copilot', dir: 'C:\\Users\\me\\.copilot\\session-state' }],
+    sources: [
+      {
+        agent: 'copilot',
+        dir: 'C:\\Users\\me\\.copilot\\session-state',
+        short: '~\\.copilot\\session-state',
+        found: true,
+      },
+    ],
     cacheFile: 'C:\\Users\\me\\AppData\\Local\\Logbook\\index-v5.bin',
   });
   vi.mocked(api.transcript).mockResolvedValue([entry('user', 'why is it flaky?'), entry('assistant', 'A clock race.')]);

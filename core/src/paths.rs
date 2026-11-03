@@ -55,3 +55,31 @@ pub fn index_cache_path() -> PathBuf {
     }
     dir.join(CACHE_FILE)
 }
+
+/// `path` with the home folder written as `~`, the way the agents' own docs write it.
+pub fn tilde(path: &std::path::Path) -> String {
+    match dirs::home_dir().and_then(|home| path.strip_prefix(&home).ok().map(std::path::Path::to_path_buf)) {
+        Some(rest) if rest.as_os_str().is_empty() => "~".into(),
+        Some(rest) => format!("~{}{}", std::path::MAIN_SEPARATOR, rest.display()),
+        None => path.display().to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tilde_tests {
+    use super::*;
+
+    #[test]
+    fn writes_the_home_folder_as_a_tilde() {
+        let home = dirs::home_dir().unwrap();
+        let sep = std::path::MAIN_SEPARATOR;
+        assert_eq!(tilde(&home.join(".claude").join("projects")), format!("~{sep}.claude{sep}projects"));
+        assert_eq!(tilde(&home), "~");
+    }
+
+    #[test]
+    fn leaves_other_paths_alone() {
+        let p = PathBuf::from(if cfg!(windows) { r"D:\elsewhere\projects" } else { "/elsewhere/projects" });
+        assert_eq!(tilde(&p), p.display().to_string());
+    }
+}

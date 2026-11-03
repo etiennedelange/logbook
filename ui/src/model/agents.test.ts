@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { session } from '../test/fixtures';
-import { presentAgents, shownAgents } from './agents';
+import { presentAgents, shownAgents, sourceRows } from './agents';
 
 describe('presentAgents', () => {
   it('lists agents with sessions, most sessions first, ties in the usual order', () => {
@@ -24,5 +24,29 @@ describe('shownAgents', () => {
   it('never hides the picked agent', () => {
     expect(shownAgents(six, 'f', false)).toEqual(['a', 'b', 'c', 'd', 'f']);
     expect(shownAgents(six, 'b', false)).toEqual(['a', 'b', 'c', 'd']);
+  });
+});
+
+describe('sourceRows', () => {
+  const dir = (agent: 'copilot' | 'claude', found = true) => ({ agent, dir: `/${agent}`, short: `~/${agent}`, found });
+
+  it('groups folders by agent with their session and kept counts, most sessions first', () => {
+    const sessions = [
+      session({ id: 'copilot:a' }),
+      session({ id: 'claude:x', agent: 'claude' }),
+      session({ id: 'claude:y', agent: 'claude', sourceDeletedAt: '2026-10-24T00:00:00Z' }),
+    ];
+    expect(sourceRows([dir('copilot'), dir('claude')], sessions)).toEqual([
+      { agent: 'claude', dirs: [dir('claude')], found: true, count: 2, kept: 1 },
+      { agent: 'copilot', dirs: [dir('copilot')], found: true, count: 1, kept: 0 },
+    ]);
+  });
+
+  it('puts agents whose folder does not exist last', () => {
+    const rows = sourceRows([dir('copilot', false), dir('claude')], []);
+    expect(rows.map((r) => [r.agent, r.found])).toEqual([
+      ['claude', true],
+      ['copilot', false],
+    ]);
   });
 });
