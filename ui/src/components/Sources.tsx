@@ -103,18 +103,19 @@ function Popover({ id, rows }: { id: string; rows: SourceRow[] }) {
       id={id}
       role="dialog"
       aria-label="Sources"
-      className="absolute bottom-[calc(100%+8px)] left-0 z-30 w-[320px] overflow-hidden rounded-xl border border-line bg-raised text-left shadow-[0_16px_40px_rgb(0_0_0/0.35),0_2px_6px_rgb(0_0_0/0.2)]"
+      className="absolute bottom-[calc(100%+8px)] left-0 z-30 flex max-h-[calc(100vh-72px)] w-[320px] flex-col overflow-hidden rounded-xl border border-line bg-raised text-left shadow-[0_16px_40px_rgb(0_0_0/0.35),0_2px_6px_rgb(0_0_0/0.2)]"
     >
-      <div className="flex flex-col gap-[3px] px-4 pb-[10px] pt-[14px]">
+      <div className="flex flex-none flex-col gap-[3px] px-4 pb-[10px] pt-[14px]">
         <h2 className="m-0 text-[13px] font-semibold text-ink">Sources</h2>
         <p className="m-0 text-[12px] leading-[1.45] text-mute">Logbook reads these folders and never changes them.</p>
       </div>
-      <ul className="m-0 flex list-none flex-col p-0 px-[6px] pb-[6px]">
+      {/* However many agents there are, the list scrolls and the header and status line stay put. */}
+      <ul className="m-0 flex min-h-0 list-none flex-col overflow-y-auto p-0 px-[6px] pb-[6px]">
         {rows.map((r) => (
           <SourceItem key={r.agent} row={r} onOpen={(dir) => void openFolder(dir)} />
         ))}
       </ul>
-      <div className="flex items-center gap-2 border-t border-line px-4 py-[10px] text-[11.5px] text-mute">
+      <div className="flex flex-none items-center gap-2 border-t border-line px-4 py-[10px] text-[11.5px] text-mute">
         {indexing ? (
           <>
             <Icon name="refresh" size={11} className="flex-none animate-spin text-accent-text" />
@@ -153,11 +154,16 @@ function SourceItem({ row, onOpen }: { row: SourceRow; onOpen: (dir: string) => 
         </div>
         {row.dirs.map((d) => (
           <div key={d.dir} className="flex min-w-0 items-center gap-1">
+            {/* A long path loses its start, not its end: the last folders are the ones that tell them apart. */}
             <span
+              dir="rtl"
               title={d.dir}
-              className={cx('min-w-0 flex-1 truncate font-mono text-[11.5px]', d.found ? 'text-soft' : 'text-mute')}
+              className={cx(
+                'min-w-0 flex-1 truncate text-left font-mono text-[11.5px]',
+                d.found ? 'text-soft' : 'text-mute',
+              )}
             >
-              {d.short}
+              <bdi dir="ltr">{d.short}</bdi>
             </span>
             {d.found && (
               <button
