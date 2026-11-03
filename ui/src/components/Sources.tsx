@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { cx } from '../cx';
 import { useNow } from '../hooks/useNow';
@@ -70,7 +70,7 @@ export function Sources() {
         <Dots rows={found} />
         <span className={RAIL_HIDE}>{label}</span>
       </button>
-      {open && <Popover id={id} rows={rows} />}
+      {open && <Popover id={id} rows={rows} anchor={wrap} />}
     </div>
   );
 }
@@ -93,17 +93,33 @@ function Dots({ rows }: { rows: SourceRow[] }) {
   );
 }
 
-function Popover({ id, rows }: { id: string; rows: SourceRow[] }) {
+/** Space kept between the popover and the top of the window. */
+const TOP_GAP = 16;
+
+function Popover({ id, rows, anchor }: { id: string; rows: SourceRow[]; anchor: RefObject<HTMLDivElement | null> }) {
   const { openFolder, indexing, readAt } = useApp(
     useShallow((s) => ({ openFolder: s.openFolder, indexing: s.status?.indexing ?? false, readAt: s.readAt })),
   );
   const now = useNow();
+  // It opens upwards from its button, which sits higher in the narrow rail (the footer stacks there), so
+  // its height is capped by the room above the button rather than by a fixed share of the window.
+  const [maxHeight, setMaxHeight] = useState<number>();
+  useLayoutEffect(() => {
+    const fit = () => {
+      const top = anchor.current?.getBoundingClientRect().top;
+      if (top !== undefined) setMaxHeight(Math.max(160, top - 8 - TOP_GAP));
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, [anchor]);
   return (
     <div
       id={id}
       role="dialog"
       aria-label="Sources"
-      className="absolute bottom-[calc(100%+8px)] left-0 z-30 flex max-h-[calc(100vh-72px)] w-[320px] flex-col overflow-hidden rounded-xl border border-line bg-raised text-left shadow-[0_16px_40px_rgb(0_0_0/0.35),0_2px_6px_rgb(0_0_0/0.2)]"
+      style={{ maxHeight }}
+      className="absolute bottom-[calc(100%+8px)] left-0 z-30 flex w-[320px] flex-col overflow-hidden rounded-xl border border-line bg-raised text-left shadow-[0_16px_40px_rgb(0_0_0/0.35),0_2px_6px_rgb(0_0_0/0.2)]"
     >
       <div className="flex flex-none flex-col gap-[3px] px-4 pb-[10px] pt-[14px]">
         <h2 className="m-0 text-[13px] font-semibold text-ink">Sources</h2>
@@ -168,8 +184,9 @@ function SourceItem({ row, onOpen }: { row: SourceRow; onOpen: (dir: string) => 
             {d.found && (
               <button
                 type="button"
-                title="Open folder"
-                aria-label={`Open the ${info.name} folder`}
+                title={`Open ${d.dir}`}
+                // An agent with several folders needs a name per button, not one shared by all of them.
+                aria-label={row.dirs.length > 1 ? `Open ${d.short}` : `Open the ${info.name} folder`}
                 onClick={() => onOpen(d.dir)}
                 className="grid h-6 w-6 flex-none place-items-center rounded-md text-mute hover:bg-btn hover:text-soft"
               >

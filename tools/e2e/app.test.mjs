@@ -86,7 +86,7 @@ describe('Logbook against session files on disk', { timeout: 120_000, skip: proc
 
   step('Sources lists both agents’ folders, found on disk', async () => {
     const invoke = (cmd, args) => window.__TAURI_INTERNALS__.invoke(cmd, args);
-    const info = await s.execAsync(invoke, 'app_info', {});
+    const info = await s.exec(invoke, 'app_info', {});
     const byAgent = Object.fromEntries(info.sources.map((x) => [x.agent, x]));
     assert.equal(byAgent.copilot?.dir, join(home.env.COPILOT_HOME, 'session-state'));
     assert.equal(byAgent.claude?.dir, join(home.env.CLAUDE_CONFIG_DIR, 'projects'));

@@ -486,6 +486,23 @@ const SECTIONS = {
       await listPane(p).locator('h1').click();
       ok(!(await pop.isVisible()), 'still open');
     });
+    await check('it stays inside the window: wide, narrow (taller footer) and at the 480px minimum height', async () => {
+      const sizes = [
+        { width: WIDTH, height: HEIGHT },
+        { width: 900, height: HEIGHT },
+        { width: 900, height: 480 },
+        { width: WIDTH, height: 480 },
+      ];
+      const seen = [];
+      for (const vp of sizes) {
+        const q = await open({ sources: '' }, vp);
+        const box = await q.getByRole('dialog', { name: 'Sources' }).boundingBox();
+        ok(box && box.y >= 0 && box.y + box.height <= vp.height, `${vp.width}x${vp.height}: ${JSON.stringify(box)}`);
+        seen.push(`${vp.width}x${vp.height} top ${Math.round(box.y)}`);
+        await q.context().close();
+      }
+      return seen.join(', ');
+    });
     await check('narrow window: the button keeps its name as dots only', async () => {
       const q = await open({}, { width: 900, height: HEIGHT });
       const b = q.locator('aside footer').getByRole('button', { name: '2 sources' });
