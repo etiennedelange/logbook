@@ -65,7 +65,13 @@ describe('Logbook against session files on disk', { timeout: 120_000, skip: proc
 
   after(async () => {
     s?.quit();
-    if (home) rmSync(home.root, { recursive: true, force: true });
+    // WebView2's processes hold its profile for a moment after the app is killed. A temp folder left
+    // behind isn't a test failure.
+    try {
+      if (home) rmSync(home.root, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+    } catch (e) {
+      console.warn(`left ${home.root}: ${e.message}`);
+    }
   });
 
   step('indexes the Copilot and Claude Code sessions it finds', async () => {
