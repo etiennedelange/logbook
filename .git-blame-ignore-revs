@@ -1,5 +1,7 @@
 # Formatting-only commits, skipped by `git blame` (GitHub reads this file; locally run
-# `git config blame.ignoreRevsFile .git-blame-ignore-revs`).
+# `git config blame.ignoreRevsFile .git-blame-ignore-revs`). List the commit as it landed on main:
+# a squash merge gives a PR's commits a new hash.
 
-# Run cargo fmt --all
-c17cf1b1f9b41e5245ae25d3eaa9b88bd575dfd7
+# Make the Rust code rustfmt-clean and check it in CI (#31). Squashed: it also adds rustfmt.toml,
+# the CI check and this file.
+37e5b54b22a74062e60f7ab18520f17509455af3
