@@ -6,6 +6,8 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-03
+
 ### Added
 - **Stats.** **Stats** in the sidebar (`5`) shows your sessions, messages, active days and current streak
   for the last 7 days, 30 days or 26 weeks, with a day-by-day activity map, the hours you start sessions,
