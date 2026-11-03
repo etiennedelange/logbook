@@ -66,7 +66,5 @@ pub fn try_read(session_dir: &Path) -> Option<SessionRecord> {
 
 fn parse_date(value: Option<&str>) -> Option<DateTime<Utc>> {
     let value = value?;
-    DateTime::parse_from_rfc3339(value)
-        .ok()
-        .map(|d| d.with_timezone(&Utc))
+    DateTime::parse_from_rfc3339(value).ok().map(|d| d.with_timezone(&Utc))
 }

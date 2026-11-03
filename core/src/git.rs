@@ -73,7 +73,10 @@ mod tests {
         assert_eq!(repo_name("https://github.com/me/logbook.git").as_deref(), Some("me/logbook"));
         assert_eq!(repo_name("git@github.com:me/logbook.git").as_deref(), Some("me/logbook"));
         assert_eq!(repo_name("ssh://git@github.com/me/logbook").as_deref(), Some("me/logbook"));
-        assert_eq!(repo_name("https://org@dev.azure.com/org/Project/_git/Backend").as_deref(), Some("org/Project/Backend"));
+        assert_eq!(
+            repo_name("https://org@dev.azure.com/org/Project/_git/Backend").as_deref(),
+            Some("org/Project/Backend")
+        );
         assert_eq!(repo_name("git@ssh.dev.azure.com:v3/org/Project/Backend").as_deref(), Some("org/Project/Backend"));
         assert_eq!(repo_name("https://example.com"), None);
     }

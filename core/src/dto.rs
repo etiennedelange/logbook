@@ -62,10 +62,7 @@ pub struct SearchHitDto {
 
 impl From<SessionSearchResult> for SearchHitDto {
     fn from(result: SessionSearchResult) -> Self {
-        Self {
-            id: result.session.id,
-            snippet: result.snippet,
-        }
+        Self { id: result.session.id, snippet: result.snippet }
     }
 }
 
@@ -79,10 +76,6 @@ pub struct TimelineEntryDto {
 
 impl From<TimelineEntry> for TimelineEntryDto {
     fn from(entry: TimelineEntry) -> Self {
-        Self {
-            role: entry.role,
-            timestamp: entry.timestamp.map(|d| d.to_rfc3339()),
-            text: entry.text,
-        }
+        Self { role: entry.role, timestamp: entry.timestamp.map(|d| d.to_rfc3339()), text: entry.text }
     }
 }

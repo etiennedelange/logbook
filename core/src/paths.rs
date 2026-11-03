@@ -11,10 +11,7 @@ pub fn session_state_root() -> PathBuf {
     if let Ok(home) = std::env::var("COPILOT_HOME") {
         return PathBuf::from(home).join("session-state");
     }
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(".copilot")
-        .join("session-state")
+    dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")).join(".copilot").join("session-state")
 }
 
 /// Claude Code's folder of transcripts, one subfolder per project: `~/.claude/projects/`.
@@ -28,9 +25,7 @@ pub fn claude_projects_root() -> PathBuf {
 
 /// Where this tool keeps its own search index, kept separate from Copilot's own data.
 pub fn app_data_dir() -> PathBuf {
-    let dir = dirs::data_local_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("Logbook");
+    let dir = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from(".")).join("Logbook");
     std::fs::create_dir_all(&dir).ok();
     dir
 }
@@ -53,7 +48,9 @@ pub fn index_cache_path() -> PathBuf {
 
     let dir = app_data_dir();
     // One-time cleanup of earlier cache formats.
-    for stale in ["index.db", "index.db-shm", "index.db-wal", "index.bin", "index-v2.bin", "index-v3.bin", "index-v4.bin"] {
+    for stale in
+        ["index.db", "index.db-shm", "index.db-wal", "index.bin", "index-v2.bin", "index-v3.bin", "index-v4.bin"]
+    {
         let _ = std::fs::remove_file(dir.join(stale));
     }
     dir.join(CACHE_FILE)

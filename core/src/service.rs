@@ -80,11 +80,7 @@ impl SessionService {
         let q = q.trim();
         let phrase_only = q.len() > 1 && q.starts_with('"') && q.ends_with('"');
         let tokens = fts_query::build(q);
-        read(&self.index)
-            .search(&tokens, phrase_only, limit)
-            .into_iter()
-            .map(SearchHitDto::from)
-            .collect()
+        read(&self.index).search(&tokens, phrase_only, limit).into_iter().map(SearchHitDto::from).collect()
     }
 
     pub fn get(&self, id: &str) -> Option<SessionDto> {

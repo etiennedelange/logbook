@@ -1,7 +1,7 @@
 use crate::models::{Agent, SessionRecord, SessionSearchResult, TimelineEntry};
 use crate::source::{kept_text, Fingerprint};
-use chrono::{DateTime, Utc};
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
@@ -236,10 +236,8 @@ fn index_all(list: Vec<Entry>) -> Vec<Indexed> {
         buckets[i % threads].push(e);
     }
     std::thread::scope(|s| {
-        let handles: Vec<_> = buckets
-            .into_iter()
-            .map(|b| s.spawn(move || b.into_iter().map(Indexed::new).collect::<Vec<_>>()))
-            .collect();
+        let handles: Vec<_> =
+            buckets.into_iter().map(|b| s.spawn(move || b.into_iter().map(Indexed::new).collect::<Vec<_>>())).collect();
         handles.into_iter().flat_map(|h| h.join().expect("indexing thread panicked")).collect()
     })
 }
@@ -337,9 +335,7 @@ impl Words {
         if last.is_empty() {
             return None;
         }
-        self.seq
-            .windows(n)
-            .position(|w| w[..n - 1] == whole[..] && last.contains(&w[n - 1]))
+        self.seq.windows(n).position(|w| w[..n - 1] == whole[..] && last.contains(&w[n - 1]))
     }
 }
 
@@ -389,12 +385,7 @@ enum Rank {
 
 /// The session's own details, searched alongside its transcript.
 fn header_text(r: &SessionRecord) -> String {
-    [&r.name, &r.repository, &r.branch, &r.cwd]
-        .into_iter()
-        .flatten()
-        .map(String::as_str)
-        .collect::<Vec<_>>()
-        .join(" ")
+    [&r.name, &r.repository, &r.branch, &r.cwd].into_iter().flatten().map(String::as_str).collect::<Vec<_>>().join(" ")
 }
 
 /// Builds a short snippet around the best match, wrapping matched words in `\u{2}`/`\u{3}`

@@ -78,10 +78,7 @@ pub struct Resume {
 impl Resume {
     /// The command as a user would type it, for Copy.
     pub fn command_line(&self) -> String {
-        std::iter::once(self.program.as_str())
-            .chain(self.args.iter().map(String::as_str))
-            .collect::<Vec<_>>()
-            .join(" ")
+        std::iter::once(self.program.as_str()).chain(self.args.iter().map(String::as_str)).collect::<Vec<_>>().join(" ")
     }
 }
 
@@ -105,7 +102,11 @@ impl Fingerprint {
                 .iter()
                 .filter_map(|p| {
                     let meta = std::fs::metadata(p).ok()?;
-                    Some(FileStamp { path: p.to_string_lossy().into_owned(), size: meta.len(), mtime_ms: mtime_ms(&meta) })
+                    Some(FileStamp {
+                        path: p.to_string_lossy().into_owned(),
+                        size: meta.len(),
+                        mtime_ms: mtime_ms(&meta),
+                    })
                 })
                 .collect(),
         )
@@ -113,10 +114,7 @@ impl Fingerprint {
 }
 
 fn mtime_ms(meta: &std::fs::Metadata) -> u128 {
-    meta.modified()
-        .ok()
-        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-        .map_or(0, |d| d.as_millis())
+    meta.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_millis())
 }
 
 /// Native session ids are UUIDs or similar; anything else (from a hand-edited or corrupt file)

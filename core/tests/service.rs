@@ -11,10 +11,7 @@ use std::sync::Mutex;
 static ENV_GUARD: Mutex<()> = Mutex::new(());
 
 fn unique_temp_dir(name: &str) -> PathBuf {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
+    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
     std::env::temp_dir().join(format!("logbook-test-{name}-{}-{nanos}", std::process::id()))
 }
 
@@ -135,7 +132,6 @@ fn renaming_a_session_is_picked_up_without_new_messages() {
 
     std::fs::remove_dir_all(&root).ok();
 }
-
 
 #[test]
 fn mismatched_yaml_id_is_keyed_by_folder_and_not_rescanned() {
