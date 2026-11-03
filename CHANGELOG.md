@@ -6,6 +6,8 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-03
+
 ### Added
 - **See where your sessions come from.** **2 sources** at the bottom of the sidebar lists the folder Logbook
   reads for each agent, how many sessions came from it and when Logbook last read it, with a button to open
