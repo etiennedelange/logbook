@@ -58,7 +58,7 @@ pub fn run(index: &mut SessionIndex, sources: &[Box<dyn Source>]) -> Result<Inde
                 }
                 Scanned::Fresh { record, text, fingerprint, kept } => {
                     present.insert(record.id.clone());
-                    index.upsert(record, text, fingerprint, kept);
+                    index.upsert(*record, text, fingerprint, kept);
                     stats.scanned += 1;
                 }
             }
@@ -76,7 +76,7 @@ pub fn run(index: &mut SessionIndex, sources: &[Box<dyn Source>]) -> Result<Inde
 
 enum Scanned {
     Unchanged(String),
-    Fresh { record: SessionRecord, text: String, fingerprint: Fingerprint, kept: Option<Vec<TimelineEntry>> },
+    Fresh { record: Box<SessionRecord>, text: String, fingerprint: Fingerprint, kept: Option<Vec<TimelineEntry>> },
 }
 
 /// `None` when the source can't read the session.
@@ -92,5 +92,10 @@ fn scan(index: &SessionIndex, source: &dyn Source, agent: Agent, files: &Session
     let Scan { record, searchable_text, kept } = source.read(files)?;
     // A session read from its file isn't deleted, even if it was before (the file came back).
     let record = SessionRecord { id, agent, native_id: files.native_id.clone(), source_deleted_at: None, ..record };
-    Some(Scanned::Fresh { record, text: searchable_text, fingerprint: files.fingerprint.clone(), kept })
+    Some(Scanned::Fresh {
+        record: Box::new(record),
+        text: searchable_text,
+        fingerprint: files.fingerprint.clone(),
+        kept,
+    })
 }

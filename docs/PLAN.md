@@ -1,6 +1,6 @@
 # Plan: more agents, and what comes after
 
-**Date:** 2026-11-02 · **Status:** Phases 1–2 built (2026-11-02); Phase 2 awaits a Windows check; Phase 3 next
+**Date:** 2026-11-02 · **Status:** Phases 1–2 built (2026-11-02); Phase 2 awaits a Windows check; Phase 3 next; Phase 4 built for Claude Code (2026-11-05)
 
 Logbook reads one agent today: the GitHub Copilot CLI. Its advantage over the CLI's own tools is instant local
 search of every message, combined with repository and date filters and one-key resume, in a native Windows
@@ -126,6 +126,47 @@ Unconfirmed: whether sessions are JSONL "rollout" files under `~/.codex/sessions
 the exact `codex resume <id>` form. Also check the report that the Codex desktop app compresses
 sessions idle for 7 days into `.jsonl.zst`, which would mean adding a zstd read. Same tests and UI as Phase 2,
 with a fixture per format.
+
+## Phase 4: files a session touched, and search by session ID
+
+**Designed 2026-11-05** (canvas: https://claude.ai/artifact/XNDJUhvNuN73qQv3FV3n2N, option A chosen over
+showing changes inline in the transcript). **Built 2026-11-05 for Claude Code** (`core/src/changes.rs`,
+`ui/src/components/Files.tsx`). Differences from the design:
+- Copilot isn't read yet: its edit events still need checking against a real `events.jsonl`.
+- "Whole session" (Claude Code's `file-history` copies) and "Show in transcript" were left out: the
+  diff shows each edit. The file-history folder wasn't there to check its format against.
+- An id matches from 8 characters only when the query is that one token; a pasted resume command's own
+  words (`claude`, `--resume`, ...) are dropped only when the rest looks like an id (has a digit).
+- Which commands "may have changed files" is a guess from their words (`rm`, `git mv`, `sed -i`,
+  `> file`, formatters ...), skipping heredoc bodies; at most 30 are kept per session.
+
+**Files.** While reading a session, collect the files the agent created or edited from its tool calls: Claude
+Code's `Write`, `Edit`, `MultiEdit` and `NotebookEdit` blocks (`input.file_path`, plus the `toolUseResult`
+patch for line counts); Copilot's create/edit tool events, whose names and fields must be checked against a
+real `events.jsonl` first. Store per file: path (relative to the session folder when inside it), created or
+edited, edit count, lines added and removed. Shell commands are listed separately, since Logbook can't
+tell which files they changed. Unknown tools and bad lines are skipped, as in the message readers.
+
+- The detail pane gets **Transcript | Files n** tabs; the facts row gains "Files: 2 created, 4 edited". The
+  Files tab groups Created and Edited (path, edit count, +/−), then "Commands that may have changed files",
+  then a note that it shows what changed during the session, not the files as they are now. No tab when a
+  session touched no files.
+- A file opens its edits as numbered diffs with times and "Show in transcript". "Whole session" (before the
+  first edit vs after the last) uses Claude Code's `~/.claude/file-history/<session-id>/` copies, and is
+  disabled when they're gone. Diffs are read on demand from the session file, never indexed.
+- Paths are searchable: a matching row's snippet reads "Edited `core/src/indexer.rs` 4 times", and the detail
+  pane opens on Files with the file marked. Only paths go in the index, not diff text (unlike "Search tool
+  output" below).
+- Kept copies keep the file list; diffs survive only as far as the kept transcript holds them.
+- `SessionRecord` changes, so the cache moves to the next `index-v*.bin`.
+
+**Session ID.** Search matches a session's native ID: whole, or a prefix of 8 or more characters, or a
+pasted resume command (`claude --resume <id>`, `copilot --resume=<id>`), whose command words aren't searched.
+The row's snippet shows "Session <id>" with the match marked, and so does the Session field in the detail pane.
+
+Tests: fixture lines for each edit tool in `core/tests/fixtures/claude/`; `pnpm ui-check` checks for the tab,
+file rows and both searches; mock data with files; new screenshot scenes (Files tab, file diff). An e2e step
+for path and ID search.
 
 ## Later, on request
 

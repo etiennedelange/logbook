@@ -20,6 +20,8 @@ export const CLAUDE = {
   branch: 'feat/e2e',
   prompt: 'Why does the tokenizer drop zebra-striped rows?',
   reply: 'The row filter treats alternate rows as headers. Fixed in `split_rows`.',
+  /** The one file the session edited, under its folder. */
+  file: 'zebra_rows.rs',
 };
 
 const iso = (msAgo) => new Date(Date.now() - msAgo).toISOString();
@@ -71,6 +73,25 @@ export function makeHome() {
     [
       line('user', 3 * HOUR, { role: 'user', content: CLAUDE.prompt }),
       line('assistant', 3 * HOUR - 30_000, { id: 'msg_1', role: 'assistant', content: [{ type: 'text', text: CLAUDE.reply }] }),
+      // An Edit and its result, as Claude Code records a successful one.
+      line('assistant', 3 * HOUR - 20_000, {
+        id: 'msg_2',
+        role: 'assistant',
+        content: [{ type: 'tool_use', id: 'e1', name: 'Edit', input: { file_path: join(cwd, 'src', CLAUDE.file) } }],
+      }),
+      JSON.stringify({
+        type: 'user',
+        isSidechain: false,
+        message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'e1', content: 'ok' }] },
+        toolUseResult: {
+          filePath: join(cwd, 'src', CLAUDE.file),
+          structuredPatch: [{ oldStart: 7, oldLines: 1, newStart: 7, newLines: 1, lines: ['-    i % 2 == 0', '+    i == 0'] }],
+        },
+        timestamp: iso(3 * HOUR - 19_000),
+        cwd,
+        gitBranch: CLAUDE.branch,
+        sessionId: CLAUDE.id,
+      }),
     ].join('\n') + '\n',
   );
 

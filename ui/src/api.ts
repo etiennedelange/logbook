@@ -1,6 +1,15 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import type { AppInfo, IndexStatus, SearchHit, Session, TimelineEntry, UpdateInfo } from './types';
+import type {
+  AppInfo,
+  FileEdit,
+  IndexStatus,
+  SearchHit,
+  Session,
+  SessionFiles,
+  TimelineEntry,
+  UpdateInfo,
+} from './types';
 
 export const api = {
   appInfo: () => invoke<AppInfo>('app_info'),
@@ -11,6 +20,9 @@ export const api = {
   /** Word-prefix AND search over names and transcripts, newest first. */
   searchSessions: (q: string, limit?: number) => invoke<SearchHit[]>('search_sessions', { q, limit }),
   transcript: (id: string) => invoke<TimelineEntry[]>('get_transcript', { id }),
+  sessionFiles: (id: string) => invoke<SessionFiles>('get_session_files', { id }),
+  /** Each edit the session made to `path`, oldest first. */
+  fileEdits: (id: string, path: string) => invoke<FileEdit[]>('get_file_edits', { id, path }),
   resumeCommand: (id: string) => invoke<string>('resume_command', { id }),
   /** Opens a terminal in the session's folder running `copilot --resume=<id>`. */
   resumeSession: (id: string) => invoke<void>('resume_session', { id }),

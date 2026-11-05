@@ -27,6 +27,42 @@ export interface Session {
    * read from Logbook's kept copy and can't be resumed.
    */
   sourceDeletedAt: string | null;
+  /** How many files the session created, and how many it edited (see `SessionFiles`). */
+  filesCreated: number;
+  filesEdited: number;
+}
+
+/** A file a session created or edited (`dto::FileChangeDto`), summed over its edits. */
+export interface FileChange {
+  /** Relative to the session's folder when inside it. */
+  path: string;
+  created: boolean;
+  edits: number;
+  added: number;
+  removed: number;
+}
+
+/** The detail pane's Files tab (`dto::SessionFilesDto`). */
+export interface SessionFiles {
+  files: FileChange[];
+  /** Shell commands that look like they change files; Logbook can't tell which. */
+  commands: string[];
+}
+
+/** A run of changed lines, each starting with ` `, `+` or `-`. */
+export interface Hunk {
+  oldStart: number;
+  newStart: number;
+  lines: string[];
+}
+
+/** One edit to a file (`dto::FileEditDto`), read from the agent's own file. */
+export interface FileEdit {
+  timestamp: string | null;
+  created: boolean;
+  hunks: Hunk[];
+  /** Lines were left out of a very large edit. */
+  truncated: boolean;
 }
 
 /**
@@ -36,6 +72,9 @@ export interface Session {
 export interface SearchHit {
   id: string;
   snippet: string | null;
+  /** What the snippet shows: the transcript, the path of `file`, or the session's id. */
+  matched: 'text' | 'file' | 'session';
+  file: FileChange | null;
 }
 
 export interface TimelineEntry {

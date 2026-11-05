@@ -158,6 +158,91 @@ const SECTIONS = {
     });
   },
 
+  async files() {
+    const files = (p) => detail(p).getByRole('navigation', { name: 'Session view' });
+    const tab = (p, name) => files(p).getByRole('button', { name: new RegExp(`^${name}`) });
+    let p = await open();
+    await check('a session that changed no files has no tabs', async () => {
+      await row(p, 'Dashboard env config').click();
+      await transcript(p).waitFor();
+      eq(await files(p).count(), 0, 'tabs');
+      ok(!(await detail(p).innerText()).includes('Files'), 'a Files fact');
+    });
+    await check('one that did: a Files fact and Transcript | Files tabs, on Transcript', async () => {
+      await row(p, 'Split the indexer').click();
+      await transcript(p).waitFor();
+      ok((await detail(p).innerText()).includes('2 created, 4 edited'), 'Files fact');
+      eq(await tab(p, 'Transcript').getAttribute('aria-current'), 'page', 'Transcript current');
+      eq((await tab(p, 'Files').innerText()).replace(/\s+/g, ' ').trim(), 'Files 6', 'Files tab with its count');
+    });
+    await check('Files lists created then edited files, with counts, and the commands', async () => {
+      await tab(p, 'Files').click();
+      eq(await tab(p, 'Files').getAttribute('aria-current'), 'page', 'Files current');
+      const created = detail(p).getByRole('region', { name: 'Created' }).getByRole('listitem');
+      const edited = detail(p).getByRole('region', { name: 'Edited' }).getByRole('listitem');
+      eq(await created.count(), 2, 'created');
+      eq(await edited.count(), 4, 'edited');
+      const indexer = (await edited.first().innerText()).replace(/\s+/g, ' ');
+      ok(/core\\src\\indexer\.rs 3 edits \+38 lines added −112 lines removed/.test(indexer), indexer);
+      const commands = detail(p).getByRole('region', { name: 'Commands that may have changed files' });
+      ok((await commands.innerText()).includes('cargo fmt'), 'commands');
+      eq(await transcript(p).count(), 0, 'transcript still showing');
+    });
+    await check('a file opens its edits as diffs; Files goes back', async () => {
+      await detail(p).getByRole('button', { name: /indexer\.rs/ }).click();
+      const edits = detail(p).getByRole('article');
+      await edits.first().waitFor();
+      eq(await edits.count(), 3, 'edits');
+      eq(await edits.first().getAttribute('aria-label'), 'Edit 1 of 3', 'label');
+      eq(await edits.first().locator('[data-op="add"]').count(), 4, 'added lines');
+      eq(await edits.first().locator('[data-op="del"]').count(), 2, 'removed lines');
+      // Removed lines are numbered in the old file, added ones in the new.
+      eq(await edits.first().locator('[data-op="del"] span').first().innerText(), '42', 'first removed line');
+      eq(await edits.first().locator('[data-op="add"] span').first().innerText(), '42', 'first added line');
+      await detail(p).getByRole('button', { name: 'Files', exact: true }).click();
+      await detail(p).getByRole('region', { name: 'Edited' }).waitFor();
+    });
+    await check('another session starts on its transcript again', async () => {
+      await row(p, 'Why is the release job').click();
+      await transcript(p).waitFor();
+    });
+    await p.context().close();
+
+    p = await open({ q: 'indexer.rs' });
+    await check('a path search: the row says which file, and opens on Files with it marked', async () => {
+      const r = row(p, 'Split the indexer');
+      const text = (await r.innerText()).replace(/\s+/g, ' ');
+      ok(text.includes('Edited core\\src\\indexer.rs 3 times'), text);
+      await r.click();
+      eq(await tab(p, 'Files').getAttribute('aria-current'), 'page', 'Files tab');
+      const marked = await detail(p).getByRole('region', { name: 'Edited' }).locator('mark').allInnerTexts();
+      eq(marked, ['indexer.rs'], 'marked');
+    });
+    await p.context().close();
+
+    const id = '9b2f6e1a-3c4d-4a7b-8e5f-1d2c3b4a5e61';
+    for (const q of [id.slice(0, 8), `claude --resume ${id}`]) {
+      p = await open({ q });
+      await check(`searching ${q.length > 20 ? 'a pasted resume command' : 'the start of an id'} finds the session`, async () => {
+        eq(await rows(p).count(), 1, 'rows');
+        const text = (await rows(p).first().innerText()).replace(/\s+/g, ' ');
+        ok(text.includes(`Session ${id}`), text);
+        await rows(p).first().click();
+        eq(await detail(p).locator('dd mark').innerText(), id, 'Session field marked');
+      });
+      await p.context().close();
+    }
+
+    p = await open({ sel: '5', tab: 'files', file: 'core\\src\\source\\mod.rs' });
+    await check('a created file shows as one all-added diff', async () => {
+      const e = detail(p).getByRole('article');
+      await e.first().waitFor();
+      eq(await e.first().getAttribute('aria-label'), 'Created', 'label');
+      eq(await e.first().locator('[data-op="del"]').count(), 0, 'removed lines');
+    });
+    await p.context().close();
+  },
+
   async agents() {
     const p = await open();
     const copilot = agentNav(p).getByRole('button', { name: /Copilot CLI/ });

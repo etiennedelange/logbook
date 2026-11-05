@@ -22,11 +22,18 @@ export function session(over: Partial<Session> = {}): Session {
     firstPrompt: 'The overdue-loans test fails about one run in five on CI.',
     path: `C:\\Users\\me\\.copilot\\session-state\\${nativeId}`,
     sourceDeletedAt: null,
+    filesCreated: 0,
+    filesEdited: 0,
     ...over,
   };
 }
 
-export const hit = (s: Session, snippet: string | null): SearchHit => ({ id: s.id, snippet });
+export const hit = (s: Session, snippet: string | null): SearchHit => ({
+  id: s.id,
+  snippet,
+  matched: 'text',
+  file: null,
+});
 
 export const entry = (role: TimelineEntry['role'], text: string, min = 5): TimelineEntry => ({
   role,

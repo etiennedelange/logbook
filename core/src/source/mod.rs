@@ -5,7 +5,7 @@
 pub mod claude;
 pub mod copilot;
 
-use crate::models::{Agent, SessionRecord, TimelineEntry};
+use crate::models::{Agent, FileEdit, SessionRecord, TimelineEntry};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -27,6 +27,12 @@ pub trait Source: Send + Sync {
 
     /// The conversation, for the detail pane.
     fn transcript(&self, record: &SessionRecord) -> Vec<TimelineEntry>;
+
+    /// Each edit the session made to `path` (as `SessionRecord::files` has it), oldest first, read
+    /// from the agent's file. Empty when the agent's edits aren't read or its file is gone.
+    fn file_edits(&self, _record: &SessionRecord, _path: &str) -> Vec<FileEdit> {
+        Vec::new()
+    }
 
     /// The command that resumes the session in the agent's own CLI. `None` when the session's
     /// id isn't safe to put on a command line.

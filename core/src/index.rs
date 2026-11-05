@@ -1,4 +1,4 @@
-use crate::models::{Agent, SessionRecord, SessionSearchResult, TimelineEntry};
+use crate::models::{Agent, FileChange, Matched, SessionRecord, SessionSearchResult, TimelineEntry};
 use crate::source::{kept_text, Fingerprint};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -52,13 +52,28 @@ struct Indexed {
     entry: Entry,
     header: Words,
     body: Words,
+    /// The paths of the files the session changed.
+    files: Words,
+    /// The agent's id for the session, lowercased.
+    id: Box<str>,
 }
 
 impl Indexed {
     fn new(entry: Entry) -> Self {
-        Self { header: Words::new(&header_text(&entry.record)), body: Words::new(&entry.searchable_text), entry }
+        let paths = entry.record.files.iter().map(|f| f.path.as_str()).collect::<Vec<_>>().join("\n");
+        Self {
+            header: Words::new(&header_text(&entry.record)),
+            body: Words::new(&entry.searchable_text),
+            files: Words::new(&paths),
+            id: entry.record.native_id.to_lowercase().into(),
+            entry,
+        }
     }
 }
+
+/// The shortest start of a session id that finds the session by its id. Shorter, it would match
+/// too many ids by chance (they are hex, so "add" or "face" could start one).
+pub const ID_PREFIX_MIN: usize = 8;
 
 /// An in-memory index over every agent's sessions, persisted to a flat `postcard`
 /// cache file. Rebuilt incrementally: a session is only re-scanned when its files'
@@ -197,10 +212,12 @@ impl SessionIndex {
         records.into_iter().take(limit).cloned().collect()
     }
 
-    /// Searches each session's name, repository, branch, folder and transcript. A session
-    /// matches when every token starts some word in it; matches are ranked by how well
-    /// they match (see `Rank`), then by whether the session's own details matched, then
-    /// most recent first. `phrase_only` keeps only sessions containing the tokens in order.
+    /// Searches each session's name, repository, branch, folder, transcript and the paths of
+    /// the files it changed. A session matches when every token starts some word in it;
+    /// matches are ranked by how well they match (see `Rank`), then by whether the session's
+    /// own details matched, then most recent first. `phrase_only` keeps only sessions
+    /// containing the tokens in order. A single token of `ID_PREFIX_MIN` or more characters
+    /// that starts a session's id finds that session first.
     pub fn search(&self, tokens: &[String], phrase_only: bool, limit: usize) -> Vec<SessionSearchResult> {
         if tokens.is_empty() {
             return Vec::new();
@@ -216,9 +233,9 @@ impl SessionIndex {
         hits.truncate(limit);
         // Snippets are only built for the hits actually returned.
         hits.into_iter()
-            .map(|h| SessionSearchResult {
-                session: h.entry.entry.record.clone(),
-                snippet: build_snippet(h.entry, tokens, h.rank, h.body_phrase),
+            .map(|h| {
+                let (snippet, matched) = describe(&h, tokens);
+                SessionSearchResult { session: h.entry.entry.record.clone(), snippet, matched }
             })
             .collect()
     }
@@ -255,15 +272,20 @@ struct Hit<'a> {
 }
 
 fn score<'a>(e: &'a Indexed, tokens: &[String], phrase_only: bool) -> Option<Hit<'a>> {
-    let (header, body) = (&e.header, &e.body);
+    if let [t] = tokens {
+        if t.chars().count() >= ID_PREFIX_MIN && e.id.starts_with(t.as_str()) {
+            return Some(Hit { entry: e, rank: Rank::Id, in_header: true, body_phrase: None });
+        }
+    }
+    let (header, body, files) = (&e.header, &e.body, &e.files);
     // Cheapest test first: a token that starts no word anywhere rules the session out.
-    if !tokens.iter().all(|t| body.has_prefix(t) || header.has_prefix(t)) {
+    if !tokens.iter().all(|t| body.has_prefix(t) || header.has_prefix(t) || files.has_prefix(t)) {
         return None;
     }
     let body_phrase = body.find_phrase(tokens);
-    let rank = if body_phrase.is_some() || header.find_phrase(tokens).is_some() {
+    let rank = if body_phrase.is_some() || header.find_phrase(tokens).is_some() || files.find_phrase(tokens).is_some() {
         Rank::Phrase
-    } else if tokens.iter().all(|t| body.id_of(t).is_some() || header.id_of(t).is_some()) {
+    } else if tokens.iter().all(|t| [body, header, files].iter().any(|w| w.id_of(t).is_some())) {
         Rank::Words
     } else {
         Rank::Prefix
@@ -271,8 +293,55 @@ fn score<'a>(e: &'a Indexed, tokens: &[String], phrase_only: bool) -> Option<Hit
     if phrase_only && rank != Rank::Phrase {
         return None;
     }
-    let in_header = tokens.iter().all(|t| header.has_prefix(t));
+    // The session's own details: its header, or the files it changed.
+    let in_header = tokens.iter().all(|t| header.has_prefix(t)) || tokens.iter().all(|t| files.has_prefix(t));
     Some(Hit { entry: e, rank, in_header, body_phrase })
+}
+
+/// A hit's snippet, and what it shows. A file whose path matches at least as well as the
+/// transcript does is shown in its place: a path is what the person was most likely after.
+fn describe(h: &Hit, tokens: &[String]) -> (Option<String>, Matched) {
+    let e = h.entry;
+    if h.rank == Rank::Id {
+        return (Some(format!("\u{2}{}\u{3}", e.entry.record.native_id)), Matched::Session);
+    }
+    let body_rank = h.body_phrase.map(|_| Rank::Phrase).or_else(|| rank_in(&e.body, tokens));
+    if let Some((rank, file, snippet)) = best_file(&e.entry.record.files, tokens) {
+        if Some(rank) >= body_rank {
+            return (Some(snippet), Matched::File(file.clone()));
+        }
+    }
+    let text = &e.entry.searchable_text;
+    (build_snippet(text, &e.body, tokens, h.rank, h.body_phrase, (5, 8)), Matched::Text)
+}
+
+/// How well `words` alone match every token, if they do.
+fn rank_in(words: &Words, tokens: &[String]) -> Option<Rank> {
+    if !tokens.iter().all(|t| words.has_prefix(t)) {
+        None
+    } else if words.find_phrase(tokens).is_some() {
+        Some(Rank::Phrase)
+    } else if tokens.iter().all(|t| words.id_of(t).is_some()) {
+        Some(Rank::Words)
+    } else {
+        Some(Rank::Prefix)
+    }
+}
+
+/// The changed file whose path matches every token best (the first, on a tie), with its path
+/// marked as a snippet.
+fn best_file<'a>(files: &'a [FileChange], tokens: &[String]) -> Option<(Rank, &'a FileChange, String)> {
+    let mut best: Option<(Rank, &FileChange, Words)> = None;
+    for f in files {
+        let words = Words::new(&f.path);
+        let Some(rank) = rank_in(&words, tokens) else { continue };
+        if best.as_ref().is_none_or(|b| rank > b.0) {
+            best = Some((rank, f, words));
+        }
+    }
+    let (rank, f, words) = best?;
+    let snippet = build_snippet(&f.path, &words, tokens, rank, words.find_phrase(tokens), (usize::MAX, usize::MAX))?;
+    Some((rank, f, snippet))
 }
 
 /// A text split into words: each distinct lowercased word once, sorted, plus the order the
@@ -386,6 +455,8 @@ enum Rank {
     Words,
     /// The tokens appear in order, as typed (the last may still be half-typed).
     Phrase,
+    /// The query is the start of the session's id.
+    Id,
 }
 
 /// The session's own details, searched alongside its transcript.
@@ -396,23 +467,29 @@ fn header_text(r: &SessionRecord) -> String {
 /// Builds a short snippet around the best match, wrapping matched words in `\u{2}`/`\u{3}`
 /// (STX/ETX) markers for the UI to style. A phrase match marks just the phrase; otherwise
 /// the words that earned the rank (whole words, or prefixes) are marked.
-fn build_snippet(e: &Indexed, tokens: &[String], rank: Rank, phrase_at: Option<usize>) -> Option<String> {
-    let (text, words) = (&e.entry.searchable_text, &e.body);
+/// `window` is how many words to keep before and after the match.
+fn build_snippet(
+    text: &str,
+    words: &Words,
+    tokens: &[String],
+    rank: Rank,
+    phrase_at: Option<usize>,
+    window: (usize, usize),
+) -> Option<String> {
     let whole: Vec<u32> = tokens.iter().filter_map(|t| words.id_of(t)).collect();
     let prefixed: Vec<Range<u32>> = tokens.iter().map(|t| words.prefixed(t)).collect();
     let is_hit = |i: usize| match (rank, phrase_at) {
         (Rank::Phrase, Some(p)) => i >= p && i < p + tokens.len(),
         (Rank::Words, _) | (Rank::Phrase, None) => whole.contains(&words.seq[i]),
-        (Rank::Prefix, _) => prefixed.iter().any(|r| r.contains(&words.seq[i])),
+        (Rank::Prefix | Rank::Id, _) => prefixed.iter().any(|r| r.contains(&words.seq[i])),
     };
 
     let n = words.seq.len();
     let match_idx = phrase_at.or_else(|| (0..n).find(|&i| is_hit(i)))?;
 
-    const BEFORE: usize = 5;
-    const AFTER: usize = 8;
-    let start_idx = match_idx.saturating_sub(BEFORE);
-    let end_idx = (match_idx + tokens.len() + AFTER).min(n);
+    let (before, after) = window;
+    let start_idx = match_idx.saturating_sub(before);
+    let end_idx = match_idx.saturating_add(tokens.len()).saturating_add(after).min(n);
 
     let mut snippet = String::new();
     let mut last = words.spans[start_idx].0 as usize;
@@ -458,6 +535,8 @@ mod tests {
             first_prompt: None,
             path: String::new(),
             source_deleted_at: None,
+            files: Vec::new(),
+            commands: Vec::new(),
         }
     }
 
@@ -475,6 +554,43 @@ mod tests {
 
     fn toks(q: &str) -> Vec<String> {
         crate::fts_query::build(q)
+    }
+
+    #[test]
+    fn finds_a_session_by_the_start_of_its_id() {
+        let (one, two) = ("4f5a6b7c-8d9e-4f0a-a1b2-c3d4e5f6a794", "9a0b1c2d-0000-4000-8000-000000000000");
+        let idx = index(&[(one, "a", 1, "nothing"), (two, "b", 2, &format!("as in {one}"))]);
+
+        // The session itself first, ahead of a newer one that mentions it.
+        let hits = idx.search(&toks("4F5A6B7C"), false, 10);
+        assert_eq!(ids(&hits), [one, two]);
+        assert_eq!(hits[0].matched, Matched::Session);
+        assert_eq!(hits[0].snippet.as_deref(), Some(&*format!("\u{2}{one}\u{3}")));
+        assert_eq!(hits[1].matched, Matched::Text);
+        assert_eq!(ids(&idx.search(&toks(one), true, 10))[0], one, "and with quotes");
+
+        // Shorter than `ID_PREFIX_MIN`, it's only a word.
+        assert_eq!(ids(&idx.search(&toks("4f5a6b7"), false, 10)), [two]);
+    }
+
+    #[test]
+    fn finds_a_session_by_a_file_it_changed() {
+        let mut idx = index(&[("talk", "a", 9, "why is indexer.rs slow?"), ("other", "b", 8, "nothing")]);
+        let mut r = record("edit", "c", 1);
+        let file = FileChange { path: "core/src/indexer.rs".into(), created: false, edits: 4, added: 38, removed: 112 };
+        r.files = vec![FileChange { path: "README.md".into(), ..file.clone() }, file.clone()];
+        idx.upsert(r, "we split it up".into(), Fingerprint::default(), None);
+
+        // Changing the file ranks above talking about it, however much newer that is.
+        let hits = idx.search(&toks("indexer.rs"), false, 10);
+        assert_eq!(ids(&hits), ["edit", "talk"]);
+        assert_eq!(hits[0].matched, Matched::File(file));
+        assert_eq!(hits[0].snippet.as_deref(), Some("core/src/\u{2}indexer\u{3}.\u{2}rs\u{3}"));
+        assert_eq!(hits[1].matched, Matched::Text);
+
+        // A transcript that matches better than any path keeps its own snippet.
+        let hits = idx.search(&toks("we split"), false, 10);
+        assert_eq!(hits[0].matched, Matched::Text);
     }
 
     #[test]

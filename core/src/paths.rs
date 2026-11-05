@@ -32,8 +32,8 @@ pub fn app_data_dir() -> PathBuf {
 
 /// The cache file name. Bump the version whenever `index::Entry` changes shape or the
 /// encoding changes: postcard has no schema, so an old cache must never be read as the new
-/// layout. v4 switched from bincode to postcard; v5 added the agent to each session, and kept transcripts.
-const CACHE_FILE: &str = "index-v5.bin";
+/// layout. v4 switched from bincode to postcard; v5 added the agent to each session, and kept transcripts; v6 the files each session changed.
+const CACHE_FILE: &str = "index-v6.bin";
 
 /// Path to this tool's own postcard-serialized index cache.
 ///
@@ -48,9 +48,16 @@ pub fn index_cache_path() -> PathBuf {
 
     let dir = app_data_dir();
     // One-time cleanup of earlier cache formats.
-    for stale in
-        ["index.db", "index.db-shm", "index.db-wal", "index.bin", "index-v2.bin", "index-v3.bin", "index-v4.bin"]
-    {
+    for stale in [
+        "index.db",
+        "index.db-shm",
+        "index.db-wal",
+        "index.bin",
+        "index-v2.bin",
+        "index-v3.bin",
+        "index-v4.bin",
+        "index-v5.bin",
+    ] {
         let _ = std::fs::remove_file(dir.join(stale));
     }
     dir.join(CACHE_FILE)

@@ -1,3 +1,4 @@
+pub mod changes;
 pub mod dto;
 pub mod events_reader;
 pub mod fts_query;

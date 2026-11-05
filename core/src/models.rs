@@ -51,6 +51,44 @@ pub struct SessionRecord {
     /// When Logbook found the session's file gone (an agent deleted it). The session is then
     /// served from Logbook's own kept copy and can't be resumed.
     pub source_deleted_at: Option<DateTime<Utc>>,
+    /// The files the agent created or edited with its own file tools, in the order it first
+    /// touched them. Empty for agents whose edits Logbook doesn't read yet.
+    pub files: Vec<FileChange>,
+    /// Shell commands the agent ran that look like they change files (`git mv`, `rm`, `sed -i`,
+    /// a formatter ...). Logbook can't tell which files they changed, so it only lists them.
+    pub commands: Vec<String>,
+}
+
+/// One file a session created or edited, summed over all of its edits.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileChange {
+    /// Relative to the session's folder when inside it, else as the agent wrote it.
+    pub path: String,
+    /// The session's first write to it created it.
+    pub created: bool,
+    pub edits: u32,
+    pub added: u32,
+    pub removed: u32,
+}
+
+/// One edit to a file, for the detail pane's diff. Read from the agent's file on demand.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FileEdit {
+    pub timestamp: Option<DateTime<Utc>>,
+    pub created: bool,
+    pub hunks: Vec<Hunk>,
+    /// Lines were left out of a very large edit.
+    pub truncated: bool,
+}
+
+/// A run of changed lines with context, as a unified diff has them: each line starts with
+/// ` `, `+` or `-`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Hunk {
+    pub old_start: u32,
+    pub new_start: u32,
+    pub lines: Vec<String>,
 }
 
 impl SessionRecord {
@@ -80,6 +118,19 @@ pub struct TimelineEntry {
 pub struct SessionSearchResult {
     pub session: SessionRecord,
     pub snippet: Option<String>,
+    /// What the snippet comes from.
+    pub matched: Matched,
+}
+
+/// Where a search hit's snippet comes from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Matched {
+    /// The transcript, or the session's name, repository, branch or folder.
+    Text,
+    /// A file the session changed; the snippet is its path.
+    File(FileChange),
+    /// The session's id; the snippet is the id.
+    Session,
 }
 
 #[cfg(test)]

@@ -3,7 +3,7 @@
 //! translation + locking — all scanning/caching/search logic lives in `index`/`indexer`/
 //! `fts_query`.
 
-use crate::dto::{SearchHitDto, SessionDto, TimelineEntryDto};
+use crate::dto::{FileEditDto, SearchHitDto, SessionDto, SessionFilesDto, TimelineEntryDto};
 use crate::index::SessionIndex;
 use crate::indexer::{self, IndexStats};
 use crate::models::{Agent, SessionRecord};
@@ -79,7 +79,7 @@ impl SessionService {
     pub fn search(&self, q: &str, limit: usize) -> Vec<SearchHitDto> {
         let q = q.trim();
         let phrase_only = q.len() > 1 && q.starts_with('"') && q.ends_with('"');
-        let tokens = fts_query::build(q);
+        let tokens = fts_query::strip_resume_command(fts_query::build(q));
         read(&self.index).search(&tokens, phrase_only, limit).into_iter().map(SearchHitDto::from).collect()
     }
 
@@ -92,6 +92,22 @@ impl SessionService {
         let (record, source) = self.session(id)?;
         let timeline = read(&self.index).kept(id).unwrap_or_else(|| source.transcript(&record));
         Some(timeline.into_iter().map(TimelineEntryDto::from).collect())
+    }
+
+    /// The files a session changed and the commands that may have changed others. `None` for an
+    /// unknown id.
+    pub fn files(&self, id: &str) -> Option<SessionFilesDto> {
+        read(&self.index).get(id).map(SessionFilesDto::from)
+    }
+
+    /// Each edit the session made to `path` (one of `files`), oldest first, read from the agent's
+    /// file. `None` for an unknown id; empty when the file is gone or holds no such edits.
+    pub fn file_edits(&self, id: &str, path: &str) -> Option<Vec<FileEditDto>> {
+        let (record, source) = self.session(id)?;
+        if record.source_deleted_at.is_some() {
+            return Some(Vec::new());
+        }
+        Some(source.file_edits(&record, path).into_iter().map(FileEditDto::from).collect())
     }
 
     /// How to resume a session. `None` for an unknown id, or one whose native id isn't safe

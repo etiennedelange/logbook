@@ -3,7 +3,7 @@
 //! format (camelCase field names, RFC3339 date strings) independent of internal
 //! representations.
 
-use crate::models::{Agent, SessionRecord, SessionSearchResult, TimelineEntry};
+use crate::models::{Agent, FileChange, FileEdit, Hunk, Matched, SessionRecord, SessionSearchResult, TimelineEntry};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
@@ -27,6 +27,10 @@ pub struct SessionDto {
     pub first_prompt: Option<String>,
     pub path: String,
     pub source_deleted_at: Option<String>,
+    /// How many files the session created and edited. The files themselves come with `files`,
+    /// only for the session on screen, so the session list stays small.
+    pub files_created: usize,
+    pub files_edited: usize,
 }
 
 impl From<SessionRecord> for SessionDto {
@@ -48,6 +52,8 @@ impl From<SessionRecord> for SessionDto {
             first_prompt: record.first_prompt,
             path: record.path,
             source_deleted_at: record.source_deleted_at.map(|d| d.to_rfc3339()),
+            files_created: record.files.iter().filter(|f| f.created).count(),
+            files_edited: record.files.iter().filter(|f| !f.created).count(),
         }
     }
 }
@@ -58,11 +64,67 @@ impl From<SessionRecord> for SessionDto {
 pub struct SearchHitDto {
     pub id: String,
     pub snippet: Option<String>,
+    /// What the snippet shows: `text` (the transcript), `file` (the path of `file`) or `session`
+    /// (the session's id).
+    pub matched: &'static str,
+    pub file: Option<FileChangeDto>,
 }
 
 impl From<SessionSearchResult> for SearchHitDto {
     fn from(result: SessionSearchResult) -> Self {
-        Self { id: result.session.id, snippet: result.snippet }
+        let (matched, file) = match result.matched {
+            Matched::Text => ("text", None),
+            Matched::File(f) => ("file", Some(f.into())),
+            Matched::Session => ("session", None),
+        };
+        Self { id: result.session.id, snippet: result.snippet, matched, file }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct FileChangeDto {
+    pub path: String,
+    pub created: bool,
+    pub edits: u32,
+    pub added: u32,
+    pub removed: u32,
+}
+
+impl From<FileChange> for FileChangeDto {
+    fn from(f: FileChange) -> Self {
+        Self { path: f.path, created: f.created, edits: f.edits, added: f.added, removed: f.removed }
+    }
+}
+
+/// The detail pane's Files tab.
+#[derive(Debug, Clone, Serialize)]
+pub struct SessionFilesDto {
+    pub files: Vec<FileChangeDto>,
+    pub commands: Vec<String>,
+}
+
+impl From<SessionRecord> for SessionFilesDto {
+    fn from(r: SessionRecord) -> Self {
+        Self { files: r.files.into_iter().map(Into::into).collect(), commands: r.commands }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct FileEditDto {
+    pub timestamp: Option<String>,
+    pub created: bool,
+    pub hunks: Vec<Hunk>,
+    pub truncated: bool,
+}
+
+impl From<FileEdit> for FileEditDto {
+    fn from(e: FileEdit) -> Self {
+        Self {
+            timestamp: e.timestamp.map(|d| d.to_rfc3339()),
+            created: e.created,
+            hunks: e.hunks,
+            truncated: e.truncated,
+        }
     }
 }
 

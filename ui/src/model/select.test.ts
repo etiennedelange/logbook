@@ -19,8 +19,9 @@ describe('visibleRows', () => {
   });
 
   it('shows search hits, with their snippets, instead of all sessions', () => {
-    const rows = visibleRows([a, b, c], [hit(c, 'x \u0002y\u0003')], 'all', null, now);
-    expect(rows).toEqual([{ session: c, snippet: 'x \u0002y\u0003' }]);
+    const h = hit(c, 'x \u0002y\u0003');
+    const rows = visibleRows([a, b, c], [h], 'all', null, now);
+    expect(rows).toEqual([{ session: c, snippet: 'x \u0002y\u0003', hit: h }]);
     expect(visibleRows([a, b, c], [hit(c, null)], 'week', null, now)).toEqual([]);
   });
 });

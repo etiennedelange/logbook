@@ -8,6 +8,7 @@ import { agentInfo, presentAgents } from '../model/agents';
 import { RANGES, repoKey, visibleRows, type Row } from '../model/select';
 import { useApp } from '../state/store';
 import type { Session } from '../types';
+import { Icon } from './Icon';
 import { PaneHeader } from './PaneHeader';
 import { SearchBox } from './SearchBox';
 import { Snippet } from './Snippet';
@@ -236,7 +237,7 @@ const SessionRow = memo(function SessionRow(p: {
   onSelect: (id: string) => void;
   onOpen: (id: string) => Promise<void>;
 }) {
-  const { session: s, snippet } = p.row;
+  const { session: s, snippet, hit } = p.row;
   const props = useListRow<HTMLDivElement>(
     p.selected,
     p.tabbable,
@@ -295,7 +296,21 @@ const SessionRow = memo(function SessionRow(p: {
           </span>
         </span>
       </div>
-      {snippet && <Snippet text={snippet} className="line-clamp-2 text-[12px] leading-[1.5] text-soft" />}
+      {snippet && hit?.matched === 'file' && hit.file ? (
+        <span className="flex min-w-0 items-center gap-[6px] text-[12px] leading-[1.5] text-soft">
+          <Icon name="file" size={12} className="flex-none text-mute" />
+          <span className="flex-none">{hit.file.created ? 'Created' : 'Edited'}</span>
+          <Snippet text={snippet} className="min-w-0 truncate font-mono text-[11.5px]" />
+          {hit.file.edits > 1 && <span className="flex-none">{hit.file.edits} times</span>}
+        </span>
+      ) : snippet && hit?.matched === 'session' ? (
+        <span className="flex min-w-0 items-center gap-[6px] text-[12px] leading-[1.5] text-soft">
+          <span className="flex-none">Session</span>
+          <Snippet text={snippet} className="min-w-0 truncate font-mono text-[11.5px]" />
+        </span>
+      ) : (
+        snippet && <Snippet text={snippet} className="line-clamp-2 text-[12px] leading-[1.5] text-soft" />
+      )}
     </div>
   );
 });
