@@ -6,6 +6,8 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-11-05
+
 ### Added
 - **The files a session changed.** A Claude Code session that created or edited files gets a **Files**
   tab next to its transcript: each file with how many times it was edited and the lines added and
