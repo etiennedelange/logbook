@@ -1,4 +1,4 @@
-import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { cx } from '../cx';
 import {
@@ -78,7 +78,7 @@ export function DetailPane() {
         <AboutButton />
         <WindowControls />
       </PaneHeader>
-      <div className="relative min-h-0 flex-1 overflow-y-auto">
+      <div data-transcript-scroll className="relative min-h-0 flex-1 overflow-y-auto">
         <Facts session={session} showAgent={multiAgent} />
         {deleted && <DeletedNote session={session} />}
         <Transcript
@@ -218,6 +218,7 @@ const Transcript = memo(function Transcript({
     [entries, tokens, mode],
   );
   const matches = hitAt.filter(Boolean).length;
+  const pinned = usePinnedPrompt(ref, entries);
 
   // Land on the first search match rather than the top of a long conversation.
   useEffect(() => {
@@ -241,6 +242,9 @@ const Transcript = memo(function Transcript({
   const now = new Date();
   return (
     <div className="px-5 pb-10 pt-4">
+      {pinned !== null && entries[pinned] && (
+        <PinnedPrompt key={pinned} entry={entries[pinned]} onJump={() => jumpTo(ref.current, pinned)} />
+      )}
       {tokens.length > 0 && (
         <p className="mx-auto mb-3 max-w-[760px] text-[11px] text-mute">
           {matches > 0
@@ -258,7 +262,7 @@ const Transcript = memo(function Transcript({
           const showDay = day !== '' && day !== lastDay && i > 0;
           lastDay = day || lastDay;
           return (
-            <li key={i} className="flex flex-col gap-[6px]">
+            <li key={i} data-entry={i} className="flex scroll-mt-14 flex-col gap-[6px]">
               {showDay && (
                 <div className="flex items-center gap-3 pb-1 pt-2 text-[11px] text-mute" aria-hidden="true">
                   <span className="h-px flex-1 bg-line-soft" />
@@ -274,6 +278,104 @@ const Transcript = memo(function Transcript({
     </div>
   );
 });
+
+/**
+ * The index of your latest message that has scrolled up out of view, so it can stay pinned
+ * above the replies to it; null while the latest one above is still (partly) on screen.
+ */
+function usePinnedPrompt(list: RefObject<HTMLOListElement | null>, entries: TimelineEntry[] | null) {
+  const [pinned, setPinned] = useState<number | null>(null);
+  const update = useCallback(() => {
+    const ol = list.current;
+    const scroller = ol?.closest<HTMLElement>('[data-transcript-scroll]');
+    if (!ol || !scroller) return setPinned(null);
+    const top = scroller.getBoundingClientRect().top;
+    const prompts = ol.querySelectorAll<HTMLElement>('[data-prompt]');
+    // In document order, so a binary search finds the last bubble wholly above the top edge.
+    let lo = 0;
+    let hi = prompts.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (prompts[mid]!.getBoundingClientRect().bottom <= top) lo = mid + 1;
+      else hi = mid;
+    }
+    const li = lo > 0 ? prompts[lo - 1]!.closest<HTMLElement>('[data-entry]') : null;
+    setPinned(li ? Number(li.dataset.entry) : null);
+  }, [list]);
+
+  useEffect(() => {
+    const scroller = list.current?.closest<HTMLElement>('[data-transcript-scroll]');
+    if (!scroller) return;
+    let frame = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(update);
+    };
+    update();
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      scroller.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [list, entries, update]);
+
+  return pinned;
+}
+
+function jumpTo(list: HTMLOListElement | null, index: number) {
+  const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  list
+    ?.querySelector(`[data-entry="${index}"]`)
+    ?.scrollIntoView?.({ block: 'start', behavior: still ? 'auto' : 'smooth' });
+}
+
+/**
+ * Your last message above the fold, as one line across the top of the transcript. Click it to read
+ * more of it, with a button that jumps back to the message itself.
+ */
+function PinnedPrompt({ entry: e, onJump }: { entry: TimelineEntry; onJump: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    // A zero-height sticky anchor: the bar floats over the transcript instead of pushing it down.
+    <div className="sticky top-0 z-10 h-0">
+      <div className={cx('-mx-5 -mt-4 border-b border-line bg-raised', open && 'shadow-[0_10px_24px_rgb(0_0_0/0.25)]')}>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+          aria-label={`Your last message${e.timestamp ? `, at ${clock(e.timestamp)}` : ''}: ${e.text.slice(0, 120)}`}
+          className="flex h-9 w-full items-center gap-2 px-5 text-left text-mute hover:text-soft"
+        >
+          <Icon name="up" size={13} className="flex-none" />
+          <span className="flex-none text-[11px] font-semibold text-soft">You</span>
+          <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{open ? '' : e.text}</span>
+          {e.timestamp && (
+            <time dateTime={e.timestamp} className="flex-none font-mono text-[11px] tabular-nums">
+              {clock(e.timestamp)}
+            </time>
+          )}
+          <Icon name={open ? 'chevron-up' : 'chevron-down'} size={13} className="flex-none" />
+        </button>
+        {open && (
+          <div className="flex flex-col gap-2 px-5 pb-3">
+            <p className="m-0 line-clamp-4 whitespace-pre-line break-words text-[13px] leading-[1.55] text-ink">
+              {e.text}
+            </p>
+            <button
+              type="button"
+              onClick={onJump}
+              className="h-[30px] self-end rounded-full border border-line bg-btn px-3 text-[12px] font-medium text-accent-text hover:bg-btn-hover"
+            >
+              Jump to message
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const messageMatches = (text: string, tokens: string[], mode: MatchMode | null): boolean =>
   tokens.length > 0 && highlightWords(text, tokens, mode).some((s) => s.hit);
@@ -310,6 +412,7 @@ const Message = memo(function Message({
         )}
       </div>
       <div
+        data-prompt={isUser ? '' : undefined}
         className={cx(
           'min-w-0 break-words text-[13.5px] leading-[1.6]',
           isUser ? 'max-w-[85%] self-end rounded-[18px] bg-sel px-4 py-[10px] text-ink' : 'text-soft',

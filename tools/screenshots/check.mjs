@@ -376,6 +376,49 @@ const SECTIONS = {
       eq(await detail(p).locator('header').getByRole('button', { name: /^Open / }).count(), 0, 'in the header');
       return text;
     });
+    await check('scrolled past your message, it stays pinned as one line; it opens to jump back', async () => {
+      // A short window, so the reminder-queue answer is taller than the transcript's view.
+      await p.setViewportSize({ width: WIDTH, height: 480 });
+      await row(p, 'Dashboard env config').click();
+      await transcript(p).waitFor();
+      const pin = detail(p).getByRole('button', { name: /^Your last message/ });
+      eq(await pin.count(), 0, 'pinned at the top of the transcript');
+      const scroller = detail(p).locator('[data-transcript-scroll]');
+      await scroller.evaluate((el) => (el.scrollTop = el.scrollHeight));
+      await pin.waitFor({ timeout: 1500 });
+      const label = await pin.getAttribute('aria-label');
+      ok(/^Your last message, at \d\d:\d\d: How does the reminder queue/.test(label), label);
+      eq(await pin.getAttribute('aria-expanded'), 'false', 'starts closed');
+      const bar = await pin.boundingBox();
+      ok(bar.height <= 40, `one line tall: ${bar.height}px`);
+      await pin.click();
+      eq(await pin.getAttribute('aria-expanded'), 'true', 'opens');
+      await detail(p).getByRole('button', { name: 'Jump to message' }).click();
+      // Back at that message, the one before it is the one pinned, closed again.
+      await p.waitForFunction(
+        () =>
+          /^Your last message.*: please build/.test(
+            document.querySelector('[aria-label^="Your last message"]')?.getAttribute('aria-label') ?? '',
+          ),
+        undefined,
+        { timeout: 3000 },
+      );
+      eq(await pin.getAttribute('aria-expanded'), 'false', 'the new one starts closed');
+      // The smooth scroll settles with that message in full view, below the pinned bar.
+      await p.waitForFunction(
+        () => {
+          const bar = document.querySelector('[aria-label^="Your last message"]')?.getBoundingClientRect();
+          const msg = [...document.querySelectorAll('[data-prompt]')]
+            .find((el) => el.textContent.includes('reminder queue'))
+            ?.getBoundingClientRect();
+          return bar && msg && msg.top >= bar.bottom;
+        },
+        undefined,
+        { timeout: 3000 },
+      );
+      await p.setViewportSize({ width: WIDTH, height: HEIGHT });
+      return label.slice(0, 60);
+    });
     await check('an untitled session is titled by its first prompt', async () => {
       await row(p, 'git rebase --update-refs').click();
       const h = (await detail(p).locator('header').innerText()).replace(/\s+/g, ' ');
