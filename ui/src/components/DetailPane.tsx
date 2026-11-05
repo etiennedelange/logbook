@@ -243,7 +243,7 @@ const Transcript = memo(function Transcript({
   return (
     <div className="px-5 pb-10 pt-4">
       {pinned !== null && entries[pinned] && (
-        <PinnedPrompt entry={entries[pinned]} onJump={() => jumpTo(ref.current, pinned)} />
+        <PinnedPrompt key={pinned} entry={entries[pinned]} onJump={() => jumpTo(ref.current, pinned)} />
       )}
       {tokens.length > 0 && (
         <p className="mx-auto mb-3 max-w-[760px] text-[11px] text-mute">
@@ -262,7 +262,7 @@ const Transcript = memo(function Transcript({
           const showDay = day !== '' && day !== lastDay && i > 0;
           lastDay = day || lastDay;
           return (
-            <li key={i} data-entry={i} className="flex scroll-mt-20 flex-col gap-[6px]">
+            <li key={i} data-entry={i} className="flex scroll-mt-14 flex-col gap-[6px]">
               {showDay && (
                 <div className="flex items-center gap-3 pb-1 pt-2 text-[11px] text-mute" aria-hidden="true">
                   <span className="h-px flex-1 bg-line-soft" />
@@ -331,23 +331,47 @@ function jumpTo(list: HTMLOListElement | null, index: number) {
     ?.scrollIntoView?.({ block: 'start', behavior: still ? 'auto' : 'smooth' });
 }
 
-/** Your last message above the fold, held at the top of the pane while you read the replies. */
+/**
+ * Your last message above the fold, as one line across the top of the transcript. Click it to read
+ * more of it, with a button that jumps back to the message itself.
+ */
 function PinnedPrompt({ entry: e, onJump }: { entry: TimelineEntry; onJump: () => void }) {
+  const [open, setOpen] = useState(false);
   return (
     // A zero-height sticky anchor: the bar floats over the transcript instead of pushing it down.
     <div className="sticky top-0 z-10 h-0">
-      <div className="-mx-5 -mt-4 border-b border-line-soft bg-bg/95 px-5 py-2 backdrop-blur-sm">
+      <div className={cx('-mx-5 -mt-4 border-b border-line bg-raised', open && 'shadow-[0_10px_24px_rgb(0_0_0/0.25)]')}>
         <button
           type="button"
-          onClick={onJump}
-          title="Your last message above: jump back to it"
-          aria-label={`Your last message: ${e.text.slice(0, 120)}. Jump to it`}
-          className="mx-auto flex w-full max-w-[760px] justify-end"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+          aria-label={`Your last message${e.timestamp ? `, at ${clock(e.timestamp)}` : ''}: ${e.text.slice(0, 120)}`}
+          className="flex h-9 w-full items-center gap-2 px-5 text-left text-mute hover:text-soft"
         >
-          <span className="line-clamp-2 max-w-[85%] whitespace-pre-line break-words rounded-[14px] bg-sel px-3 py-[6px] text-left text-[12.5px] leading-[1.5] text-ink hover:brightness-110">
-            {e.text}
-          </span>
+          <Icon name="up" size={13} className="flex-none" />
+          <span className="flex-none text-[11px] font-semibold text-soft">You</span>
+          <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{open ? '' : e.text}</span>
+          {e.timestamp && (
+            <time dateTime={e.timestamp} className="flex-none font-mono text-[11px] tabular-nums">
+              {clock(e.timestamp)}
+            </time>
+          )}
+          <Icon name={open ? 'chevron-up' : 'chevron-down'} size={13} className="flex-none" />
         </button>
+        {open && (
+          <div className="flex flex-col gap-2 px-5 pb-3">
+            <p className="m-0 line-clamp-4 whitespace-pre-line break-words text-[13px] leading-[1.55] text-ink">
+              {e.text}
+            </p>
+            <button
+              type="button"
+              onClick={onJump}
+              className="h-[30px] self-end rounded-full border border-line bg-btn px-3 text-[12px] font-medium text-accent-text hover:bg-btn-hover"
+            >
+              Jump to message
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

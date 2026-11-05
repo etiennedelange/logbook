@@ -34,6 +34,9 @@ const PATHS = {
     </>
   ),
   close: <path d="M6 6l12 12M18 6L6 18" />,
+  up: <path d="M12 19V5M5 12l7-7 7 7" />,
+  'chevron-down': <path d="M6 9l6 6 6-6" />,
+  'chevron-up': <path d="M18 15l-6-6-6 6" />,
   update: <path d="M12 4v11M7 10.5l5 5 5-5M5 20h14" />,
   external: <path d="M14 5h5v5M19 5l-8 8M17 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h4" />,
   terminal: <path d="M5 7l5 5-5 5M12 17h7" />,
