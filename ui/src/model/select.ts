@@ -72,6 +72,8 @@ export const inRange = (s: Session, range: Range, now: Date): boolean => rangeTe
 export interface Row {
   session: Session;
   snippet: string | null;
+  /** The search hit the row is for, if any. */
+  hit: SearchHit | null;
 }
 
 /** What the list shows: search hits when there is a query, otherwise every session; then the range, repo and agent filters. */
@@ -90,10 +92,10 @@ export function visibleRows(
     for (const h of hits) {
       const session = byId.get(h.id);
       // A hit for a session that isn't loaded yet; `refresh` re-runs the search once it is.
-      if (session) rows.push({ session, snippet: h.snippet });
+      if (session) rows.push({ session, snippet: h.snippet, hit: h });
     }
   } else {
-    rows = sessions.map((session) => ({ session, snippet: null }));
+    rows = sessions.map((session) => ({ session, snippet: null, hit: null }));
   }
   const ok = rangeTest(range, now);
   return rows.filter(

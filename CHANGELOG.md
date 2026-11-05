@@ -6,6 +6,15 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **The files a session changed.** A Claude Code session that created or edited files gets a **Files**
+  tab next to its transcript: each file with how many times it was edited and the lines added and
+  removed, and the shell commands that may have changed other files. Click a file to see each edit as a
+  diff. Search matches these paths too, so `indexer.rs` finds the sessions that changed it and opens them
+  on that file. Copilot CLI sessions will follow once their edit records are checked.
+- **Search by session id.** Paste a session's id, its first 8 characters, or a whole resume command
+  (`claude --resume …`) into search to find that session.
+
 ## [0.6.3] - 2026-11-05
 
 ### Added

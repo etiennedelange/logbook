@@ -40,7 +40,7 @@ beforeEach(() => {
         found: true,
       },
     ],
-    cacheFile: 'C:\\Users\\me\\AppData\\Local\\Logbook\\index-v5.bin',
+    cacheFile: 'C:\\Users\\me\\AppData\\Local\\Logbook\\index-v6.bin',
   });
   vi.mocked(api.transcript).mockResolvedValue([entry('user', 'why is it flaky?'), entry('assistant', 'A clock race.')]);
 });

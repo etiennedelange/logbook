@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::atomic::Ordering;
 
-use logbook_core::dto::{SearchHitDto, SessionDto, TimelineEntryDto};
+use logbook_core::dto::{FileEditDto, SearchHitDto, SessionDto, SessionFilesDto, TimelineEntryDto};
 use logbook_core::models::Agent;
 use logbook_core::source::Resume;
 use serde::Serialize;
@@ -110,6 +110,18 @@ pub async fn search_sessions(
 #[tauri::command]
 pub async fn get_session(state: State<'_, AppState>, id: String) -> CmdResult<Option<SessionDto>> {
     Ok(state.service.get(&id))
+}
+
+/// The files a session changed, for the detail pane's Files tab.
+#[tauri::command]
+pub async fn get_session_files(state: State<'_, AppState>, id: String) -> CmdResult<SessionFilesDto> {
+    state.service.files(&id).ok_or_else(|| format!("session {id} not found"))
+}
+
+/// Each edit a session made to one of its files, read from the agent's own file.
+#[tauri::command]
+pub async fn get_file_edits(state: State<'_, AppState>, id: String, path: String) -> CmdResult<Vec<FileEditDto>> {
+    state.service.file_edits(&id, &path).ok_or_else(|| format!("session {id} not found"))
 }
 
 #[tauri::command]

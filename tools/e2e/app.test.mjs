@@ -133,6 +133,33 @@ describe('Logbook against session files on disk', { timeout: 120_000, skip: proc
     assert.ok(claude.includes(`claude --resume ${CLAUDE.id}`), claude);
   });
 
+  step('the backend reads the files a Claude session changed, and finds it by path and by id', async () => {
+    const invoke = (cmd, args) => window.__TAURI_INTERNALS__.invoke(cmd, args);
+    const id = `claude:${CLAUDE.id}`;
+    const files = await s.exec(invoke, 'get_session_files', { id });
+    assert.equal(files.files.length, 1, JSON.stringify(files));
+    const path = files.files[0].path;
+    assert.ok(/^src[\\/]zebra_rows\.rs$/.test(path), path);
+    const edits = await s.exec(invoke, 'get_file_edits', { id, path });
+    assert.deepEqual(edits[0].hunks[0].lines, ['-    i % 2 == 0', '+    i == 0']);
+    const byPath = await s.exec(invoke, 'search_sessions', { q: 'zebra_rows.rs' });
+    assert.deepEqual(byPath.map((h) => [h.id, h.matched]), [[id, 'file']]);
+    const byId = await s.exec(invoke, 'search_sessions', { q: `claude --resume ${CLAUDE.id}` });
+    assert.deepEqual(byId.map((h) => [h.id, h.matched]), [[id, 'session']]);
+  });
+
+  step('a path search opens the session on its Files tab', async (t) => {
+    const box = await s.find('input[type="search"]');
+    t.after(() => s.escape(box));
+    await s.type(box, 'zebra_rows.rs');
+    await s.waitFor('the file hit', `() => (${rowTexts})().some((r) => r.includes('Edited'))`);
+    assert.ok(await s.exec(`() => (${clickRow})(${JSON.stringify(CLAUDE.prompt)})`), 'Claude row not found');
+    await s.waitFor('the Files tab', () => !!document.querySelector('section[data-pane="detail"] section[aria-label="Edited"]'));
+    // Back to the transcript, which the next step reads.
+    await s.exec(() => [...document.querySelectorAll('nav[aria-label="Session view"] button')].find((b) => b.innerText.trim() === 'Transcript').click());
+    await s.escape(box);
+  });
+
   step('a Claude session whose file is deleted stays readable, marked and not resumable', async () => {
     rmSync(home.claudeFile);
     await s.click(await s.find('button[aria-label^="Re-index sessions"]'));

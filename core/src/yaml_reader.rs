@@ -61,6 +61,8 @@ pub fn try_read(session_dir: &Path) -> Option<SessionRecord> {
         first_prompt: None,
         path: session_dir.to_string_lossy().into_owned(),
         source_deleted_at: None,
+        files: Vec::new(),
+        commands: Vec::new(),
     })
 }
 

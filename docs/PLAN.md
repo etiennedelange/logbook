@@ -1,6 +1,6 @@
 # Plan: more agents, and what comes after
 
-**Date:** 2026-11-02 · **Status:** Phases 1–2 built (2026-11-02); Phase 2 awaits a Windows check; Phase 3 next; Phase 4 designed (2026-11-05)
+**Date:** 2026-11-02 · **Status:** Phases 1–2 built (2026-11-02); Phase 2 awaits a Windows check; Phase 3 next; Phase 4 built for Claude Code (2026-11-05)
 
 Logbook reads one agent today: the GitHub Copilot CLI. Its advantage over the CLI's own tools is instant local
 search of every message, combined with repository and date filters and one-key resume, in a native Windows
@@ -130,7 +130,15 @@ with a fixture per format.
 ## Phase 4: files a session touched, and search by session ID
 
 **Designed 2026-11-05** (canvas: https://claude.ai/artifact/XNDJUhvNuN73qQv3FV3n2N, option A chosen over
-showing changes inline in the transcript). Can be built before or after Phase 3.
+showing changes inline in the transcript). **Built 2026-11-05 for Claude Code** (`core/src/changes.rs`,
+`ui/src/components/Files.tsx`). Differences from the design:
+- Copilot isn't read yet: its edit events still need checking against a real `events.jsonl`.
+- "Whole session" (Claude Code's `file-history` copies) and "Show in transcript" were left out: the
+  diff shows each edit. The file-history folder wasn't there to check its format against.
+- An id matches from 8 characters only when the query is that one token; a pasted resume command's own
+  words (`claude`, `--resume`, ...) are dropped only when the rest looks like an id (has a digit).
+- Which commands "may have changed files" is a guess from their words (`rm`, `git mv`, `sed -i`,
+  `> file`, formatters ...), skipping heredoc bodies; at most 30 are kept per session.
 
 **Files.** While reading a session, collect the files the agent created or edited from its tool calls: Claude
 Code's `Write`, `Edit`, `MultiEdit` and `NotebookEdit` blocks (`input.file_path`, plus the `toolUseResult`

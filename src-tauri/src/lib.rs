@@ -105,6 +105,8 @@ pub fn run() {
             commands::search_sessions,
             commands::get_session,
             commands::get_transcript,
+            commands::get_session_files,
+            commands::get_file_edits,
             commands::resume_command,
             commands::resume_session,
             commands::open_folder,

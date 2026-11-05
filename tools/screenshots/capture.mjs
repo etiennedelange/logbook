@@ -44,6 +44,9 @@ const SCENES = {
   about: { params: { sel: '0', range: 'all', about: '1' } },
   // Two agents: Claude Code picked in the sidebar, and a session whose transcript it deleted (seed 8).
   agents: { params: { agent: 'claude', sel: '8', range: 'all' } },
+  // The Files tab of a Claude Code session (seed 5): what it created and edited, and one file's edits.
+  files: { params: { sel: '5', range: 'all', tab: 'files' } },
+  'file-edits': { params: { sel: '5', range: 'all', tab: 'files', file: 'core\\src\\indexer.rs' } },
   // The sidebar's Sources popover: each agent's folder, its sessions, and the kept Claude session.
   sources: { params: { sel: '0', range: 'all', sources: '1' } },
   // An update on offer: the toolbar pill and What's New with the release notes.
@@ -84,6 +87,10 @@ const PUBLISHED = [
   'browse-light.webp',
   'agents-dark.webp',
   'agents-light.webp',
+  'files-dark.webp',
+  'files-light.webp',
+  'file-edits-dark.webp',
+  'file-edits-light.webp',
   'search-dark.webp',
   'search-light.webp',
   'search-detail-dark.webp',

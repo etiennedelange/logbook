@@ -156,6 +156,20 @@ mark {
   padding: 0 1px;
 }
 
+/* A file's edits in the Files tab: added and removed lines. */
+.diff-add {
+  background: color-mix(in srgb, var(--ok) 13%, transparent);
+}
+.diff-add .diff-op {
+  color: var(--ok);
+}
+.diff-del {
+  background: color-mix(in srgb, var(--c-fail) 13%, transparent);
+}
+.diff-del .diff-op {
+  color: var(--c-fail);
+}
+
 /* Rendered transcript messages (GitHub-flavoured markdown). */
 .chat-md > :first-child {
   margin-top: 0;

@@ -6,12 +6,20 @@
 import { emit } from '@tauri-apps/api/event';
 import { mockIPC } from '@tauri-apps/api/mocks';
 import { entry, session } from '../test/fixtures';
-import type { SearchHit, Session, TimelineEntry } from '../types';
+import type { FileEdit, SearchHit, Session, SessionFiles, TimelineEntry } from '../types';
 
 const H = 60;
 const D = 24 * H;
 
-let seed: { s: Session; t: TimelineEntry[] }[] = [
+/** A mock session: its record, transcript, and the files it changed with each one's edits. */
+interface Seed {
+  s: Session;
+  t: TimelineEntry[];
+  f?: SessionFiles;
+  edits?: Record<string, FileEdit[]>;
+}
+
+let seed: Seed[] = [
   {
     s: session({
       id: 'copilot:3f1c9a2e-7b44-4d0e-9a51-1c2f0e8b7d10',
@@ -145,7 +153,90 @@ let seed: { s: Session; t: TimelineEntry[] }[] = [
       updatedAt: ago(2 * H),
       createdAt: ago(4 * H),
       messageCount: 38,
+      filesCreated: 2,
+      filesEdited: 4,
     }),
+    f: {
+      files: [
+        { path: 'core\\src\\source\\mod.rs', created: true, edits: 1, added: 124, removed: 0 },
+        { path: 'core\\src\\indexer.rs', created: false, edits: 3, added: 38, removed: 112 },
+        { path: 'core\\src\\source\\copilot.rs', created: true, edits: 1, added: 64, removed: 0 },
+        { path: 'core\\src\\models.rs', created: false, edits: 2, added: 6, removed: 1 },
+        { path: 'core\\src\\paths.rs', created: false, edits: 1, added: 1, removed: 1 },
+        { path: 'docs\\PLAN.md', created: false, edits: 1, added: 9, removed: 2 },
+      ],
+      commands: ['git mv core/src/scan.rs core/src/indexer.rs', 'cargo fmt'],
+    },
+    edits: {
+      'core\\src\\indexer.rs': [
+        {
+          timestamp: ago(4 * H - 4),
+          created: false,
+          truncated: false,
+          hunks: [
+            {
+              oldStart: 41,
+              newStart: 41,
+              lines: [
+                ' pub fn run(index: &mut SessionIndex) -> Result<IndexStats> {',
+                '-    let root = paths::session_state_root();',
+                '-    let found = discover_sessions(&root)?;',
+                '+    let mut found = Vec::new();',
+                '+    for source in source::all() {',
+                '+        found.extend(source.discover()?);',
+                '+    }',
+                '     let mut stats = IndexStats::default();',
+              ],
+            },
+          ],
+        },
+        {
+          timestamp: ago(4 * H - 5),
+          created: false,
+          truncated: false,
+          hunks: [
+            {
+              oldStart: 88,
+              newStart: 90,
+              lines: [
+                '-fn discover_sessions(root: &Path) -> Result<Vec<SessionDir>> {',
+                '-    // moved to source/copilot.rs',
+                '-}',
+                '+// Discovery lives in each source now (see source/mod.rs).',
+              ],
+            },
+          ],
+        },
+        {
+          timestamp: ago(2 * H + 8),
+          created: false,
+          truncated: false,
+          hunks: [{ oldStart: 3, newStart: 3, lines: [' use crate::index::SessionIndex;', '+use crate::source;'] }],
+        },
+      ],
+      'core\\src\\source\\mod.rs': [
+        {
+          timestamp: ago(4 * H - 3),
+          created: true,
+          truncated: false,
+          hunks: [
+            {
+              oldStart: 0,
+              newStart: 1,
+              lines: [
+                '+//! Where sessions come from: one `Source` per coding agent.',
+                '+',
+                '+pub trait Source: Send + Sync {',
+                '+    fn agent(&self) -> Agent;',
+                '+    fn discover(&self) -> Result<Vec<SessionFiles>>;',
+                '+    fn read(&self, files: &SessionFiles) -> Option<Scan>;',
+                '+}',
+              ],
+            },
+          ],
+        },
+      ],
+    },
     t: [
       entry('user', 'Put Copilot behind a Source trait so a second agent is one new module.', 4 * H),
       entry(
@@ -234,26 +325,46 @@ function ago(min: number): string {
   return new Date(Date.now() - min * 60_000).toISOString();
 }
 
-/** Word-prefix AND search with STX/ETX-marked snippets, roughly like the Rust index. */
+/**
+ * Word-prefix AND search with STX/ETX-marked snippets, roughly like the Rust index: the start of a
+ * session's id (or a pasted resume command) finds it first, then sessions that changed a matching
+ * file, then transcripts.
+ */
 function search(q: string): SearchHit[] {
-  const tokens = q
+  let tokens = q
     .toLowerCase()
     .split(/[^\p{L}\p{N}_-]+/u)
     .filter(Boolean);
+  const resumeWords = ['claude', 'copilot', '--resume', '-r', 'resume'];
+  const ids = tokens.filter((t) => !resumeWords.includes(t));
+  if (ids.length === 1 && ids.length < tokens.length && /\d/.test(ids[0]!) && ids[0]!.length >= 8) tokens = ids;
   if (tokens.length === 0) return [];
-  return seed.flatMap(({ s, t }) => {
-    const text = t.map((e) => e.text).join('\n');
-    const words = text.split(/([^\p{L}\p{N}_-]+)/u);
-    const isHit = (w: string) => tokens.some((tok) => w.toLowerCase().startsWith(tok));
-    if (!tokens.every((tok) => words.some((w) => w.toLowerCase().startsWith(tok)))) return [];
-    const first = words.findIndex(isHit);
+  const startsWord = (words: string[]) => (tok: string) => words.some((w) => w.toLowerCase().startsWith(tok));
+  const mark = (words: string[]) =>
+    words.map((w) => (tokens.some((tok) => w.toLowerCase().startsWith(tok)) ? `\u0002${w}\u0003` : w)).join('');
+  const split = (text: string) => text.split(/([^\p{L}\p{N}_-]+)/u);
+
+  const byId: SearchHit[] = [];
+  const byFile: SearchHit[] = [];
+  const byText: SearchHit[] = [];
+  for (const { s, t, f } of seed) {
+    if (tokens.length === 1 && tokens[0]!.length >= 8 && s.nativeId.startsWith(tokens[0]!)) {
+      byId.push({ id: s.id, snippet: `\u0002${s.nativeId}\u0003`, matched: 'session', file: null });
+      continue;
+    }
+    const file = f?.files.find((x) => tokens.every(startsWord(split(x.path))));
+    if (file) {
+      byFile.push({ id: s.id, snippet: mark(split(file.path)), matched: 'file', file });
+      continue;
+    }
+    const words = split(t.map((e) => e.text).join('\n'));
+    if (!tokens.every(startsWord(words))) continue;
+    const first = words.findIndex((w) => tokens.some((tok) => w.toLowerCase().startsWith(tok)));
     const from = Math.max(0, first - 8);
-    const snippet = words
-      .slice(from, first + 12)
-      .map((w) => (isHit(w) ? `\u0002${w}\u0003` : w))
-      .join('');
-    return [{ id: s.id, snippet: `${from > 0 ? '... ' : ''}${snippet} ...` }];
-  });
+    const snippet = mark(words.slice(from, first + 12));
+    byText.push({ id: s.id, snippet: `${from > 0 ? '... ' : ''}${snippet} ...`, matched: 'text', file: null });
+  }
+  return [...byId, ...byFile, ...byText];
 }
 
 /**
@@ -394,7 +505,7 @@ export function installMock(): void {
                 found: !p.has('nosources'),
               },
             ],
-            cacheFile: 'C:\\Users\\me\\AppData\\Local\\Logbook\\index-v5.bin',
+            cacheFile: 'C:\\Users\\me\\AppData\\Local\\Logbook\\index-v6.bin',
           };
         case 'index_status':
           // The generation moves only when the sessions do (`?arrive`), as the real index's does.
@@ -431,6 +542,13 @@ export function installMock(): void {
             .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
         case 'search_sessions':
           return search(a.q ?? '');
+        case 'get_session_files':
+          return find(a.id!)?.f ?? { files: [], commands: [] };
+        case 'get_file_edits': {
+          const x = find(a.id!);
+          if (x?.s.sourceDeletedAt) return [];
+          return x?.edits?.[a.path!] ?? [];
+        }
         case 'get_transcript':
           if (p.has('transcripterror')) throw new Error('events.jsonl: unexpected end of file at line 212');
           return find(a.id!)?.t ?? [];
@@ -510,4 +628,8 @@ async function applyUrlPresets(): Promise<void> {
   if (p.has('stats')) useApp.getState().setView('stats');
   const sel = p.get('sel');
   if (sel) useApp.getState().select(seed[Number(sel)]?.s.id ?? sel);
+  // `?tab=files` opens the selected session's Files tab; `&file=<path>` one file's edits.
+  if (p.get('tab') === 'files') useApp.getState().setDetailTab('files');
+  const file = p.get('file');
+  if (file) useApp.getState().openFile(file);
 }

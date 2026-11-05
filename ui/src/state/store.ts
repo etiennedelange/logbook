@@ -2,7 +2,17 @@ import { create } from 'zustand';
 import { api } from '../api';
 import { sessionsById, type Range } from '../model/select';
 import type { Period } from '../model/stats';
-import type { Agent, IndexStatus, SearchHit, Session, SourceInfo, TimelineEntry, UpdateInfo } from '../types';
+import type {
+  Agent,
+  FileEdit,
+  IndexStatus,
+  SearchHit,
+  Session,
+  SessionFiles,
+  SourceInfo,
+  TimelineEntry,
+  UpdateInfo,
+} from '../types';
 import { saveWhatsNew } from '../update';
 
 export type Theme = 'dark' | 'light';
@@ -49,7 +59,28 @@ export interface Detail {
   id: string;
   transcript: TimelineEntry[] | null;
   error: string | null;
+  /** Which of the session's tabs shows. */
+  tab: 'transcript' | 'files';
+  /** The Files tab's list, fetched when the tab first opens. */
+  files: SessionFiles | null;
+  filesError: string | null;
+  /** The file whose edits the Files tab shows, or null for the list. */
+  file: string | null;
+  edits: FileEdit[] | null;
+  editsError: string | null;
 }
+
+const newDetail = (id: string, tab: Detail['tab']): Detail => ({
+  id,
+  transcript: null,
+  error: null,
+  tab,
+  files: null,
+  filesError: null,
+  file: null,
+  edits: null,
+  editsError: null,
+});
 
 interface AppState {
   sessions: Session[];
@@ -100,6 +131,10 @@ interface AppState {
   setStatsPeriod: (p: Period) => void;
   select: (id: string) => void;
   clearSelection: () => void;
+  /** Shows the selected session's transcript or its Files tab. */
+  setDetailTab: (tab: Detail['tab']) => void;
+  /** Shows one file's edits in the Files tab, or the list again (null). */
+  openFile: (path: string | null) => void;
   toggleTheme: () => void;
   setAbout: (open: boolean) => void;
   setSourcesOpen: (open: boolean) => void;
@@ -230,18 +265,55 @@ export const useApp = create<AppState>()((set, get) => ({
       set({ selId: id });
       return;
     }
-    set({ selId: id, detail: { id, transcript: null, error: null } });
+    // Found by a file it changed: open on that file's tab.
+    const tab = get().hits?.find((h) => h.id === id)?.matched === 'file' ? 'files' : 'transcript';
+    set({ selId: id, detail: newDetail(id, tab) });
+    const update = (d: Partial<Detail>) => {
+      const cur = get().detail;
+      if (cur?.id === id) set({ detail: { ...cur, ...d } });
+    };
     api.transcript(id).then(
-      (transcript) => {
-        if (get().detail?.id === id) set({ detail: { id, transcript, error: null } });
+      (transcript) => update({ transcript, error: null }),
+      (e) => update({ transcript: null, error: msg(e) }),
+    );
+    if (tab === 'files') get().setDetailTab('files');
+  },
+
+  clearSelection: () => set({ selId: null, detail: null }),
+
+  setDetailTab: (tab) => {
+    const d = get().detail;
+    if (!d) return;
+    set({ detail: { ...d, tab } });
+    if (tab !== 'files' || d.files) return;
+    const id = d.id;
+    api.sessionFiles(id).then(
+      (files) => {
+        const cur = get().detail;
+        if (cur?.id === id) set({ detail: { ...cur, files, filesError: null } });
       },
       (e) => {
-        if (get().detail?.id === id) set({ detail: { id, transcript: null, error: msg(e) } });
+        const cur = get().detail;
+        if (cur?.id === id) set({ detail: { ...cur, filesError: msg(e) } });
       },
     );
   },
 
-  clearSelection: () => set({ selId: null, detail: null }),
+  openFile: (file) => {
+    const d = get().detail;
+    if (!d) return;
+    set({ detail: { ...d, file, edits: null, editsError: null } });
+    if (file === null) return;
+    const id = d.id;
+    const update = (u: Partial<Detail>) => {
+      const cur = get().detail;
+      if (cur?.id === id && cur.file === file) set({ detail: { ...cur, ...u } });
+    };
+    api.fileEdits(id, file).then(
+      (edits) => update({ edits }),
+      (e) => update({ editsError: msg(e) }),
+    );
+  },
 
   toggleTheme: () => {
     const theme: Theme = get().theme === 'dark' ? 'light' : 'dark';

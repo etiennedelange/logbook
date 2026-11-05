@@ -7,11 +7,15 @@ Built with Tauri 2 (Rust) and React, laid out like
 
 ![Logbook showing a session transcript](docs/screenshots/browse-dark.webp)
 
-- **Keyword search** over session names and full transcripts, with highlighted snippets.
+- **Keyword search** over session names, full transcripts and the paths of files a session changed,
+  with highlighted snippets. Paste a session id (or its first 8 characters, or a resume command) to find
+  that session.
 - **Time ranges**: all sessions, today, last 7 days, last 30 days (`1`–`4`).
 - **Agents**: with sessions from both agents, filter to one from the sidebar (`Alt+1`, `Alt+2`).
 - **Repositories**: filter to one repository from the sidebar.
 - **Transcript view** with session metadata.
+- **Files** (Claude Code): the files a session created and edited, with lines added and removed,
+  each edit as a diff, and the shell commands that may have changed other files.
 - **Stats** (`5`): sessions, messages and streaks for the last 7 days, 30 days or 26 weeks; a
   day-by-day activity map; when you start sessions; agents and top repositories; and a few
   highlights, like your chattiest session. New sessions appear live while it's open.
@@ -25,6 +29,8 @@ Built with Tauri 2 (Rust) and React, laid out like
   readable, marked "source deleted". They can't be resumed.
 - **Updates**: when a new release is out, **Update** appears in the toolbar. **What's New** shows
   its release notes, and **Update now** installs it and restarts.
+
+![The Files tab: the files a Claude Code session created and edited](docs/screenshots/files-dark.webp)
 
 ![Logbook's Stats view: totals, an activity map, hours, agents and repositories](docs/screenshots/stats-dark.webp)
 
@@ -85,7 +91,7 @@ Optional environment variables (handy for testing against other data):
 |---------------------|-------------------|-------------------------------------------------|
 | `COPILOT_HOME`      | `~/.copilot`      | Root of the Copilot CLI's session data          |
 | `CLAUDE_CONFIG_DIR` | `~/.claude`       | Root of Claude Code's data (`projects/` is read) |
-| `LOGBOOK_CACHE_DIR` | OS local data dir | Where this app's own `index-v5.bin` cache lives |
+| `LOGBOOK_CACHE_DIR` | OS local data dir | Where this app's own `index-v6.bin` cache lives |
 
 The app never reads `~/.copilot/session-store.db`; that SQLite file belongs to the
 Copilot CLI itself. It never writes to either agent's folder.

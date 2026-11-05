@@ -12,9 +12,14 @@
 //! this reader keeps only what it recognises (user and assistant text, titles, folder, branch,
 //! times), ignores every other record type, and never fails a session over one bad line.
 //! `core/tests/claude.rs` checks it against a small hand-written fixture.
+//!
+//! The files a session changed come from the results of its file tools (`Write`, `Edit`,
+//! `MultiEdit`): a user record's `toolUseResult` with a `filePath` and a `structuredPatch`, whose
+//! `type` is `create` for a new file. A failed edit has a plain-text result and isn't counted.
 
 use super::{is_safe_id, kept_text, Fingerprint, Resume, Scan, SessionFiles, Source};
-use crate::models::{Agent, SessionRecord, TimelineEntry, FIRST_PROMPT_MAX};
+use crate::changes::{self, Edit};
+use crate::models::{Agent, FileEdit, Hunk, SessionRecord, TimelineEntry, FIRST_PROMPT_MAX};
 use crate::{git, paths};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -66,6 +71,7 @@ impl Source for ClaudeCode {
             Some((root, remote)) => (Some(root.to_string_lossy().into_owned()), remote),
             None => (None, None),
         };
+        let changed = changes::files(&t.edits, t.cwd.as_deref());
         let record = SessionRecord {
             id: Agent::ClaudeCode.session_id(&files.native_id),
             agent: Agent::ClaudeCode,
@@ -83,6 +89,8 @@ impl Source for ClaudeCode {
             first_prompt,
             path: files.path.to_string_lossy().into_owned(),
             source_deleted_at: None,
+            files: changed,
+            commands: t.commands,
         };
         Some(Scan { record, searchable_text: kept_text(&t.timeline), kept: Some(t.timeline) })
     }
@@ -90,6 +98,15 @@ impl Source for ClaudeCode {
     /// The index keeps every Claude Code transcript, so this is only a fallback.
     fn transcript(&self, record: &SessionRecord) -> Vec<TimelineEntry> {
         read_transcript(Path::new(&record.path)).map(|t| t.timeline).unwrap_or_default()
+    }
+
+    fn file_edits(&self, record: &SessionRecord, path: &str) -> Vec<FileEdit> {
+        let Some(t) = read_transcript(Path::new(&record.path)) else { return Vec::new() };
+        t.edits
+            .into_iter()
+            .filter(|e| changes::relative(&e.path, t.cwd.as_deref()) == path)
+            .map(Edit::into_file_edit)
+            .collect()
     }
 
     fn resume(&self, record: &SessionRecord) -> Option<Resume> {
@@ -113,6 +130,10 @@ struct Transcript {
     branch: Option<String>,
     first_at: Option<DateTime<Utc>>,
     last_at: Option<DateTime<Utc>>,
+    /// Successful writes by the file tools, in order.
+    edits: Vec<Edit>,
+    /// Shell commands that may have changed files (see `changes::may_change_files`).
+    commands: Vec<String>,
 }
 
 /// Record types this reader uses. Lines without one of these are skipped unparsed: most of a
@@ -164,6 +185,16 @@ fn read_transcript(path: &Path) -> Option<Transcript> {
                 if let Some(branch) = str_of("gitBranch") {
                     t.branch = Some(branch.to_owned());
                 }
+                // A subagent's edits and commands changed files too, so these come before the skip below.
+                if kind == "user" {
+                    if let Some(edit) = v.get("toolUseResult").and_then(|r| file_edit(r, at)) {
+                        t.edits.push(edit);
+                    }
+                } else {
+                    for command in shell_commands(&v) {
+                        changes::note_command(&mut t.commands, command);
+                    }
+                }
 
                 // Subagent turns, and context Claude Code adds itself, aren't the conversation (though
                 // they still count for the times, folder and branch above).
@@ -200,6 +231,45 @@ fn read_transcript(path: &Path) -> Option<Transcript> {
         }
     }
     Some(t)
+}
+
+/// A file tool's successful result as an edit. `None` for any other result: other tools', and
+/// failures, whose result is a string.
+fn file_edit(result: &Value, at: Option<DateTime<Utc>>) -> Option<Edit> {
+    let path = result.get("filePath").and_then(Value::as_str).filter(|p| !p.is_empty())?;
+    let patch = result.get("structuredPatch")?.as_array()?;
+    let created = result.get("type").and_then(Value::as_str) == Some("create");
+    let (mut hunks, mut truncated) = (Vec::new(), false);
+    let mut room = changes::MAX_EDIT_LINES;
+    for h in patch {
+        let num = |k: &str| h.get(k).and_then(Value::as_u64).unwrap_or(0) as u32;
+        let all = h.get("lines").and_then(Value::as_array).map(Vec::as_slice).unwrap_or_default();
+        let lines: Vec<String> = all.iter().filter_map(Value::as_str).take(room).map(str::to_owned).collect();
+        truncated |= lines.len() < all.len();
+        room -= lines.len();
+        if !lines.is_empty() {
+            hunks.push(Hunk { old_start: num("oldStart"), new_start: num("newStart"), lines });
+        }
+    }
+    // A new file's patch is empty: its content is the diff.
+    if created && hunks.is_empty() {
+        let content = result.get("content").and_then(Value::as_str).unwrap_or_default();
+        (hunks, truncated) = changes::created_hunk(content);
+    }
+    let (added, removed) = changes::counts(&hunks);
+    Some(Edit { path: path.to_owned(), created, timestamp: at, hunks, truncated, added, removed })
+}
+
+/// The commands of an assistant record's shell tool calls (`Bash`, or `PowerShell` on Windows).
+fn shell_commands(record: &Value) -> impl Iterator<Item = &str> {
+    let blocks = record.get("message").and_then(|m| m.get("content")).and_then(Value::as_array);
+    blocks.into_iter().flatten().filter_map(|b| {
+        let name = b.get("name").and_then(Value::as_str)?;
+        if b.get("type").and_then(Value::as_str) != Some("tool_use") || !matches!(name, "Bash" | "PowerShell") {
+            return None;
+        }
+        b.get("input")?.get("command")?.as_str()
+    })
 }
 
 /// What the person typed, or `None` for a user record that isn't a prompt: tool results,

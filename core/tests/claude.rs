@@ -77,6 +77,56 @@ fn reads_a_transcript_into_a_session() {
 }
 
 #[test]
+fn reads_the_files_a_session_changed() {
+    let _guard = ENV_GUARD.lock().unwrap();
+    let (root, transcript) = setup("files");
+    let service = SessionService::bootstrap().unwrap();
+    let id = format!("claude:{ID}");
+
+    let s = service.get(&id).unwrap();
+    assert_eq!((s.files_created, s.files_edited), (2, 1));
+    // Tool calls aren't messages.
+    assert_eq!(s.message_count, 4);
+
+    let f = service.files(&id).unwrap();
+    let files: Vec<_> = f.files.iter().map(|f| (f.path.as_str(), f.created, f.edits, f.added, f.removed)).collect();
+    // Relative to the session's folder when inside it; the failed edit isn't there.
+    assert_eq!(
+        files,
+        [("src/escape.rs", true, 1, 3, 0), ("src/lexer.rs", false, 2, 3, 1), ("/tmp/notes.txt", true, 1, 1, 0)]
+    );
+    // Only the command that may have changed files.
+    assert_eq!(f.commands, ["cd /home/me/demo && git mv src/old_lexer.rs src/lexer_v1.rs"]);
+
+    let edits = service.file_edits(&id, "src/lexer.rs").unwrap();
+    assert_eq!(edits.len(), 2);
+    assert_eq!(edits[0].timestamp.as_deref(), Some("2026-10-30T09:05:31+00:00"));
+    assert_eq!(edits[0].hunks[0].old_start, 10);
+    assert_eq!(edits[0].hunks[0].lines[1], "-    todo!()");
+    let created = service.file_edits(&id, "src/escape.rs").unwrap();
+    assert!(created[0].created);
+    assert_eq!(created[0].hunks[0].lines[0], "+pub fn decode(s: &str) -> String {");
+    assert!(service.file_edits(&id, "src/missing.rs").unwrap().is_empty());
+    assert!(service.file_edits("claude:nope", "src/lexer.rs").is_none());
+
+    // Found by a path, by its id, and by a pasted resume command.
+    let hits = service.search("lexer.rs", 10);
+    assert_eq!((hits[0].matched, hits[0].file.as_ref().map(|f| f.path.as_str())), ("file", Some("src/lexer.rs")));
+    for q in [&ID[..8], ID, &format!("claude --resume {ID}")] {
+        let hits = service.search(q, 10);
+        assert_eq!((hits.len(), hits[0].matched), (1, "session"), "{q}");
+    }
+
+    // Once Claude Code deletes the transcript, the list stays but the edits can't be read.
+    std::fs::remove_file(&transcript).unwrap();
+    service.rebuild().unwrap();
+    assert_eq!(service.files(&id).unwrap().files.len(), 3);
+    assert!(service.file_edits(&id, "src/lexer.rs").unwrap().is_empty());
+
+    std::fs::remove_dir_all(&root).ok();
+}
+
+#[test]
 fn a_deleted_transcript_is_kept() {
     let _guard = ENV_GUARD.lock().unwrap();
     let (root, transcript) = setup("kept");

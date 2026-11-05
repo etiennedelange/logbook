@@ -27,12 +27,13 @@ import { UpdatePill } from './UpdatePill';
 import { WindowControls } from './WindowControls';
 import { AgentLabel } from './ListPane';
 import { Shortcuts } from './Shortcuts';
+import { DetailTabs, FilesView, filesCount, filesSummary } from './Files';
 
 /** Messages longer than this start folded, unless they contain a search match. */
 const FOLD_CHARS = 1600;
 
 export function DetailPane() {
-  const { sessions, hits, detail, hitsQuery, resume, copyResume, openFolder } = useApp(
+  const { sessions, hits, detail, hitsQuery, resume, copyResume, openFolder, setDetailTab, openFile } = useApp(
     useShallow((s) => ({
       sessions: s.sessions,
       hits: s.hits,
@@ -41,6 +42,8 @@ export function DetailPane() {
       resume: s.resume,
       copyResume: s.copyResume,
       openFolder: s.openFolder,
+      setDetailTab: s.setDetailTab,
+      openFile: s.openFile,
     })),
   );
   const id = detail?.id;
@@ -50,6 +53,9 @@ export function DetailPane() {
   const searchKey = useDeferredValue(hits ? queryTokens(hitsQuery).join(' ') : '');
 
   const multiAgent = useMemo(() => presentAgents(sessions).length > 1, [sessions]);
+  const tokens = useMemo(() => (searchKey ? searchKey.split(' ') : NO_TOKENS), [searchKey]);
+  // Found by its id: the Session field shows the match.
+  const idMatch = !!id && !!hits?.some((h) => h.id === id && h.matched === 'session');
 
   if (!detail || !session) return <NothingSelected />;
 
@@ -79,15 +85,20 @@ export function DetailPane() {
         <WindowControls />
       </PaneHeader>
       <div data-transcript-scroll className="relative min-h-0 flex-1 overflow-y-auto">
-        <Facts session={session} showAgent={multiAgent} />
+        <Facts session={session} showAgent={multiAgent} idMatch={idMatch} />
         {deleted && <DeletedNote session={session} />}
-        <Transcript
-          key={session.id}
-          entries={detail.transcript}
-          error={detail.error}
-          searchKey={searchKey}
-          speaker={info.speaker}
-        />
+        {filesCount(session) > 0 && <DetailTabs session={session} tab={detail.tab} onTab={setDetailTab} />}
+        {detail.tab === 'files' && filesCount(session) > 0 ? (
+          <FilesView session={session} detail={detail} tokens={tokens} onOpen={openFile} />
+        ) : (
+          <Transcript
+            key={session.id}
+            entries={detail.transcript}
+            error={detail.error}
+            searchKey={searchKey}
+            speaker={info.speaker}
+          />
+        )}
       </div>
       {/* The resume dock: what Resume will run and where, with the action beside it. */}
       <div className="flex-none px-5 pb-4 pt-2">
@@ -125,11 +136,13 @@ export function DetailPane() {
   );
 }
 
-function Facts({ session: s, showAgent }: { session: Session; showAgent: boolean }) {
+function Facts({ session: s, showAgent, idMatch }: { session: Session; showAgent: boolean; idMatch: boolean }) {
+  const files = filesSummary(s);
   const top = [
     { label: 'Last active', value: dateTime(s.updatedAt) },
     { label: 'Started', value: dateTime(s.createdAt) },
     { label: 'Messages', value: String(s.messageCount) },
+    ...(files ? [{ label: 'Files', value: files }] : []),
   ];
   const folder = s.cwd ?? s.gitRoot;
   const paths = [...(folder ? [{ label: 'Folder', value: folder }] : []), { label: 'Session', value: s.nativeId }];
@@ -159,7 +172,7 @@ function Facts({ session: s, showAgent }: { session: Session; showAgent: boolean
             <dt className="text-[11px] text-mute">{f.label}</dt>
             <dd className="m-0 flex min-w-0 items-center">
               <span className="min-w-0 select-all truncate font-mono text-[11.5px] text-soft" title={f.value}>
-                {f.value}
+                {idMatch && f.label === 'Session' ? <mark>{f.value}</mark> : f.value}
               </span>
             </dd>
           </div>
