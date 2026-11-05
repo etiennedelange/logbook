@@ -6,6 +6,8 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-11-05
+
 ### Added
 - **Your last message stays in sight.** Scroll down a long reply and the message you sent that it
   answers stays pinned as one line at the top of the transcript. Click it to read more of it, then
