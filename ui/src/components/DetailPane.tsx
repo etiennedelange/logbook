@@ -75,7 +75,7 @@ export function DetailPane() {
           <span
             data-tauri-drag-region
             title={[repo, session.branch].filter(Boolean).join(' · ')}
-            className="max-w-[40%] flex-none truncate rounded-full bg-raised px-[10px] py-[3px] font-mono text-[11px] text-soft"
+            className="max-w-[40%] flex-none truncate rounded-full bg-raised px-[10px] py-[2px] font-mono text-[11px] text-soft"
           >
             {where}
           </span>
@@ -484,7 +484,7 @@ function IconAction(p: { icon: IconName; label: string; onClick: () => void }) {
 function NothingSelected() {
   return (
     <section aria-label="Session" data-pane="detail" className="flex min-h-0 min-w-0 flex-col">
-      <PaneHeader title="No session selected" sub="Pick one to read its transcript" className="px-5">
+      <PaneHeader title="No session selected" className="px-5">
         <UpdatePill />
         <AboutButton />
         <WindowControls />

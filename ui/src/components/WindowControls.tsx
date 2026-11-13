@@ -36,15 +36,17 @@ export function WindowControls() {
     };
   }, []);
 
-  const base = 'grid h-[28px] w-[34px] flex-none place-items-center rounded-md text-mute';
+  // Windows 11 caption buttons: 46px wide, the full height of the bar, square, flush with the top-right
+  // corner (-mr-3 cancels the header's right padding), close turns red edge to edge.
+  const base = 'grid w-[46px] flex-none place-items-center text-soft';
   return (
-    <div className="ml-[2px] flex flex-none items-center gap-px" role="group" aria-label="Window">
+    <div className="-mr-3 ml-1 flex flex-none self-stretch" role="group" aria-label="Window">
       <button
         type="button"
         title="Minimise"
         aria-label="Minimise"
         onClick={() => void appWindow()?.minimize()}
-        className={`${base} hover:bg-btn hover:text-soft`}
+        className={`${base} hover:bg-btn hover:text-ink`}
       >
         <svg {...GLYPH} aria-hidden="true">
           <path d="M1 5.5h8" />
@@ -55,7 +57,7 @@ export function WindowControls() {
         title={maximized ? 'Restore' : 'Maximise'}
         aria-label={maximized ? 'Restore' : 'Maximise'}
         onClick={() => void appWindow()?.toggleMaximize()}
-        className={`${base} hover:bg-btn hover:text-soft`}
+        className={`${base} hover:bg-btn hover:text-ink`}
       >
         <svg {...GLYPH} aria-hidden="true">
           {maximized ? (
@@ -73,7 +75,7 @@ export function WindowControls() {
         title="Close"
         aria-label="Close"
         onClick={() => void appWindow()?.close()}
-        className={`${base} hover:bg-c-fail hover:text-white`}
+        className={`${base} hover:bg-[#c42b1c] hover:text-white`}
       >
         <svg {...GLYPH} aria-hidden="true">
           <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" />

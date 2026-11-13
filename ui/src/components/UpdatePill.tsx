@@ -16,7 +16,7 @@ export function UpdatePill() {
       aria-haspopup="dialog"
       disabled={updating}
       onClick={() => setWhatsNew({ ...update, mode: 'update' })}
-      className="flex h-[26px] flex-none items-center gap-[6px] rounded-full border border-accent/40 bg-accent/12 px-[10px] text-[12px] font-medium text-accent-text hover:bg-accent/20 disabled:cursor-default disabled:opacity-70"
+      className="flex h-[22px] flex-none items-center gap-[6px] rounded-full border border-accent/40 bg-accent/12 px-[10px] text-[12px] font-medium text-accent-text hover:bg-accent/20 disabled:cursor-default disabled:opacity-70"
     >
       <Icon name="update" size={13} />
       {/* The session title shares this header; below 1400px the version moves to the tooltip. */}

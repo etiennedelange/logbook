@@ -289,7 +289,7 @@ const SECTIONS = {
       const all = await rows(p).count();
       await claude.click();
       const onlyClaude = await rows(p).count();
-      const sub = (await listPane(p).locator('header span').first().textContent()).trim();
+      const sub = (await listPane(p).locator('[data-list-sub]').textContent()).trim();
       await claude.click();
       await logbook.click();
       ok(onlyClaude < all && onlyClaude > 0, `logbook ${all}, of which Claude ${onlyClaude}`);
@@ -338,7 +338,7 @@ const SECTIONS = {
       await p.waitForTimeout(300);
       eq(await rows(p).count(), 1, 'rows');
       ok((await rows(p).first().locator('mark').count()) > 0, 'no mark in the snippet');
-      return (await listPane(p).locator('header span').first().textContent()).trim();
+      return (await listPane(p).locator('[data-list-sub]').textContent()).trim();
     });
     await check('× clears the search', async () => {
       await p.getByRole('button', { name: 'Clear filter' }).click();

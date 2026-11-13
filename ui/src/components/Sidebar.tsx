@@ -62,11 +62,11 @@ export function Sidebar() {
     <aside className={cx('flex min-h-0 flex-col bg-side', stats && 'st-on')}>
       <div
         data-tauri-drag-region
-        className="flex h-[60px] flex-none items-center gap-[9px] px-[18px] max-[959px]:justify-center max-[959px]:px-0"
+        className="flex h-[32px] flex-none items-center gap-[9px] px-[18px] max-[959px]:justify-center max-[959px]:px-0"
       >
         <Icon name="logbook" size={19} className="pointer-events-none flex-none text-accent-text" />
         {/* The wordmark is lowercase; the name in prose stays "Logbook". */}
-        <span data-tauri-drag-region className={cx('truncate text-[16px] font-semibold tracking-[-0.02em]', RAIL_HIDE)}>
+        <span data-tauri-drag-region className={cx('truncate text-[15px] font-semibold tracking-[-0.02em]', RAIL_HIDE)}>
           logbook
         </span>
       </div>
