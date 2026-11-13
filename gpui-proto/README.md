@@ -4,8 +4,9 @@ Experiment, not shipped: Logbook's search-and-list screen in GPUI ([gpui-kit](ht
 over `logbook-core` with no IPC. See "Experiment: a GPUI front end" in `docs/PLAN.md` for the question and the criteria.
 
 ```bash
-cargo run -p logbook-gpui-proto     # not a default workspace member
-cargo test -p logbook-gpui-proto
+cd gpui-proto   # its own workspace and lockfile, separate from the app's
+cargo run
+cargo test
 ```
 
 Linux needs `libxkbcommon-dev libxkbcommon-x11-dev` (and a Vulkan driver such as `mesa-vulkan-drivers` to open a window).

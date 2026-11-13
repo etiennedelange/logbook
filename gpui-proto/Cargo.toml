@@ -5,6 +5,9 @@ edition = "2021"
 description = "Experiment: a GPUI front end over logbook-core (see docs/PLAN.md)"
 publish = false
 
+# Its own workspace and lockfile: GPUI's dependency tree stays out of the shipping app's Cargo.lock.
+[workspace]
+
 [dependencies]
 logbook-core = { path = "../core" }
 gpui-kit = "0.9.1"

@@ -1,5 +1,6 @@
 node_modules/
 /target/
+/gpui-proto/target/
 /ui/dist/
 /src-tauri/gen/
 /tools/screenshots/out/

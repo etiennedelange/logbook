@@ -176,7 +176,7 @@ the WebView2 build, and is a transcript view tractable? The Tauri/React app stay
 
 Built: search box (debounced, stale results dropped), virtualized list with matched-word highlighting, Up/Down, Enter
 copies the resume command, background re-scan. Not built: detail/transcript pane (step 3), filters, resume, theming.
-Run it with `cargo run -p logbook-gpui-proto` (it is not a default workspace member). Checked on Linux under Xvfb
+Run it with `cargo run --manifest-path gpui-proto/Cargo.toml` (its own workspace and lockfile, so GPUI stays out of the app's `Cargo.lock`). Checked on Linux under Xvfb
 with a synthetic 600-session history; **nothing has been measured on Windows yet**.
 
 Continue only if, on a real history, idle memory is under about half of the WebView2 build's (sum the `msedgewebview2`
