@@ -170,19 +170,24 @@ for path and ID search.
 
 ## Experiment: a GPUI front end
 
-**Started 2026-11-13.** `gpui-proto/`: Logbook's search-and-list screen in GPUI (via [gpui-kit](https://crates.io/crates/gpui-kit)
-0.9.1) calling `SessionService` directly, no IPC. It answers one question: is it meaningfully lighter and faster than
-the WebView2 build, and is a transcript view tractable? The Tauri/React app stays the shipping UI either way.
+**Started 2026-11-13.** `gpui-proto/`: Logbook in GPUI (via [gpui-kit](https://crates.io/crates/gpui-kit) 0.9.1) calling
+`SessionService` directly, no IPC. It answers one question: is it meaningfully lighter and faster than the WebView2 build, with
+the same screens? The Tauri/React app stays the shipping UI either way.
 
-Built: search box (debounced, stale results dropped), virtualized list with matched-word highlighting, Up/Down, Enter
-copies the resume command, background re-scan, and a transcript pane (selectable markdown, code blocks, GPUI's
-variable-height virtual list; messages over 20k characters are cut). Not built: filters, resume, theming, syntax
-highlighting in code blocks, custom title bar.
-Run it with `cargo run --manifest-path gpui-proto/Cargo.toml` (its own workspace and lockfile, so GPUI stays out of the app's `Cargo.lock`).
+Built (2026-11-13): the whole app, following the web UI screen by screen: sidebar (ranges, agents, repositories, Sources,
+rail), the day-grouped list with search, the detail pane (facts, tabs, markdown transcript with search marks, folding and a pinned
+prompt, Files and diffs, the resume dock), Stats, About, What's New, notices, zoom, both themes, the custom title bar. See
+`gpui-proto/README.md` for what differs (no in-app update install, no Stats entrance animations, no roving focus rings).
+Run it with `cargo run --release --manifest-path gpui-proto/Cargo.toml` (its own workspace and lockfile, so GPUI stays out of the app's `Cargo.lock`).
 The `gpui-proto` workflow builds the Windows exe on every push that touches it (Actions → run → Artifacts).
 
-First Windows check (2026-11-13, 915 real sessions, Task Manager "Memory", idle): the prototype 125 MB; Logbook 249 MB
-(94.6 MB host + 153.4 MB WebView2 Manager). The list renders correctly. Cold start, typing and scrolling not yet timed.
+Measured so far:
+- Windows, 915 real sessions, Task Manager "Memory", idle (2026-11-13, the list and transcript prototype): GPUI 125 MB; Logbook 249 MB
+  (94.6 MB host + 153.4 MB WebView2 Manager).
+- Linux, release build, 10,000 synthetic sessions (154 MB of transcripts): cold index 447 ms; warm start to a full list 22 ms;
+  idle re-scan 51 ms; a search keystroke that matches nearly everything 20–35 ms end to end; a transcript loads in about 1 ms.
+  Idle CPU is zero. (Memory there isn't comparable: a software-rendered GPU inflates it.)
+- Not yet measured on Windows with the full app: memory, cold start, scrolling, text selection and copy.
 
 Continue only if, on a real history, idle memory is under about half of the WebView2 build's (sum the `msedgewebview2`
 processes), cold start to a usable list is no slower, keystroke-to-results is no slower, and a 5k-message transcript

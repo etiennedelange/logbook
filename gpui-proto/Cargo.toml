@@ -13,3 +13,8 @@ logbook-core = { path = "../core" }
 gpui-kit = "0.9.1"
 anyhow = "1"
 chrono = "0.4"
+dirs = "7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# The update check only: it reads latest.json. Installing an update stays with the Tauri app.
+ureq = "3"
