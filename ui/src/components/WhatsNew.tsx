@@ -56,7 +56,7 @@ export function WhatsNew() {
     >
       {whatsNew && (
         <>
-          <header className="flex h-[40px] flex-none items-center gap-[10px] border-b border-line pl-5 pr-3">
+          <header className="flex h-[60px] flex-none items-center gap-[10px] border-b border-line pl-5 pr-3">
             <span className="grid h-[26px] w-[26px] flex-none place-items-center rounded-[7px] bg-accent text-accent-ink">
               <Icon name="update" size={15} />
             </span>

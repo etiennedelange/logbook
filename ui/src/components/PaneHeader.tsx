@@ -1,7 +1,7 @@
 import { cx } from '../cx';
 
 /** Pane top bar. Every pane uses the same height so their bottom borders line up across the window. */
-export const HEADER_H = 'h-[40px]';
+export const HEADER_H = 'h-[32px]';
 
 export function PaneHeader({
   title,
