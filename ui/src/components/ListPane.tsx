@@ -90,7 +90,11 @@ export function ListPane() {
           label="Search sessions"
           placeholder="Search names, repos and transcripts"
         />
-        {sub && <p data-list-sub className="m-0 mt-2 truncate px-1 text-[12px] text-mute">{sub}</p>}
+        {sub && (
+          <p data-list-sub className="m-0 mt-2 truncate px-1 text-[12px] text-mute">
+            {sub}
+          </p>
+        )}
       </div>
 
       <div
