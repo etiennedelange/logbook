@@ -2095,7 +2095,7 @@ checksum = "0ceec5bc11778974d1bcb055b18002eba7f4b3518b6a0081b3af5f21666da9ad"
 
 [[package]]
 name = "logbook"
-version = "0.6.4"
+version = "0.6.5"
 dependencies = [
  "logbook-core",
  "serde",
@@ -2111,7 +2111,7 @@ dependencies = [
 
 [[package]]
 name = "logbook-core"
-version = "0.6.4"
+version = "0.6.5"
 dependencies = [
  "anyhow",
  "chrono",

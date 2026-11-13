@@ -1,6 +1,6 @@
 [package]
 name = "logbook"
-version = "0.6.4"
+version = "0.6.5"
 edition = "2021"
 description = "Logbook: search, browse and resume GitHub Copilot CLI and Claude Code sessions"
 
