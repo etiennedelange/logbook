@@ -175,9 +175,14 @@ for path and ID search.
 the WebView2 build, and is a transcript view tractable? The Tauri/React app stays the shipping UI either way.
 
 Built: search box (debounced, stale results dropped), virtualized list with matched-word highlighting, Up/Down, Enter
-copies the resume command, background re-scan. Not built: detail/transcript pane (step 3), filters, resume, theming.
-Run it with `cargo run --manifest-path gpui-proto/Cargo.toml` (its own workspace and lockfile, so GPUI stays out of the app's `Cargo.lock`). Checked on Linux under Xvfb
-with a synthetic 600-session history; **nothing has been measured on Windows yet**.
+copies the resume command, background re-scan, and a transcript pane (selectable markdown, code blocks, GPUI's
+variable-height virtual list; messages over 20k characters are cut). Not built: filters, resume, theming, syntax
+highlighting in code blocks, custom title bar.
+Run it with `cargo run --manifest-path gpui-proto/Cargo.toml` (its own workspace and lockfile, so GPUI stays out of the app's `Cargo.lock`).
+The `gpui-proto` workflow builds the Windows exe on every push that touches it (Actions → run → Artifacts).
+
+First Windows check (2026-11-13, 915 real sessions, Task Manager "Memory", idle): the prototype 125 MB; Logbook 249 MB
+(94.6 MB host + 153.4 MB WebView2 Manager). The list renders correctly. Cold start, typing and scrolling not yet timed.
 
 Continue only if, on a real history, idle memory is under about half of the WebView2 build's (sum the `msedgewebview2`
 processes), cold start to a usable list is no slower, keystroke-to-results is no slower, and a 5k-message transcript

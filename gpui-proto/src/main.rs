@@ -1,18 +1,24 @@
 //! Experiment: Logbook's search-and-list screen in GPUI, straight over `logbook-core`.
 //! No IPC: the window holds a `SessionService` and calls it from background tasks.
 
-mod rows;
+use logbook_gpui_proto::rows;
 
 use gpui_kit::component::input::{Input, InputEvent, InputState};
-use gpui_kit::component::list::{List, ListDelegate, ListItem, ListState};
+use gpui_kit::component::list::{List, ListDelegate, ListEvent, ListItem, ListState};
+use gpui_kit::component::scroll::ScrollableElement as _;
+use gpui_kit::component::text::TextView;
 use gpui_kit::component::{h_flex, v_flex, ActiveTheme as _, IndexPath};
 use gpui_kit::*;
 use logbook_core::dto::SessionDto;
 use logbook_core::service::SessionService;
-use rows::{Row, Snippet};
+use rows::{Message, Row, Snippet};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+
+/// Wait this long after the selection settles before loading its transcript, so holding an arrow key
+/// doesn't read a file per row it passes.
+const TRANSCRIPT_DEBOUNCE: Duration = Duration::from_millis(120);
 
 /// Wait this long after the last keystroke before searching.
 const DEBOUNCE: Duration = Duration::from_millis(60);
@@ -76,6 +82,15 @@ impl ListDelegate for Rows {
     }
 }
 
+/// The transcript pane's state. `list` is GPUI's own variable-height virtual list, so only the
+/// messages on screen are laid out.
+struct Transcript {
+    id: String,
+    messages: Arc<Vec<Message>>,
+    list: gpui_kit::ListState,
+    loading: bool,
+}
+
 struct App_ {
     service: Arc<SessionService>,
     input: Entity<InputState>,
@@ -87,6 +102,10 @@ struct App_ {
     seq: u64,
     generation: u64,
     status: String,
+    transcript: Option<Transcript>,
+    /// Bumped per transcript request; also keeps message element ids unique across sessions.
+    tseq: u64,
+    _load: Option<Task<()>>,
     _search: Option<Task<()>>,
     _subs: Vec<Subscription>,
 }
@@ -95,7 +114,12 @@ impl App_ {
     fn new(service: Arc<SessionService>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let input = cx.new(|cx| InputState::new(window, cx).placeholder("Search sessions"));
         let list = cx.new(|cx| ListState::new(Rows { service: service.clone(), rows: Vec::new(), selected: None }, window, cx));
-        let subs = vec![cx.subscribe_in(&input, window, |this, _, ev: &InputEvent, window, cx| match ev {
+        let list_sub = cx.subscribe_in(&list, window, |this, _, ev: &ListEvent, window, cx| {
+            if matches!(ev, ListEvent::Select(_) | ListEvent::Confirm(_)) {
+                this.sync_transcript(window, cx);
+            }
+        });
+        let subs = vec![list_sub, cx.subscribe_in(&input, window, |this, _, ev: &InputEvent, window, cx| match ev {
             InputEvent::Change => this.query_changed(window, cx),
             InputEvent::PressEnter { .. } => {
                 // Focus stays in the box, so Enter there acts on the selected row too.
@@ -112,6 +136,9 @@ impl App_ {
             seq: 0,
             generation: 0,
             status: "Indexing…".into(),
+            transcript: None,
+            tseq: 0,
+            _load: None,
             _search: None,
             _subs: subs,
         };
@@ -162,6 +189,7 @@ impl App_ {
             }
             cx.notify();
         });
+        self.sync_transcript(window, cx);
     }
 
     /// Up/Down from the search box: focus stays there, the selection moves in the list.
@@ -176,6 +204,102 @@ impl App_ {
             l.set_selected_index(Some(IndexPath::new(next)), window, cx);
             l.scroll_to_selected_item(window, cx);
         });
+        self.sync_transcript(window, cx);
+    }
+
+    /// Loads the selected session's transcript off the UI thread, once the selection has settled.
+    fn sync_transcript(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let id = self.list.read(cx).delegate().selected_id().map(str::to_string);
+        let Some(id) = id else {
+            self.transcript = None;
+            self._load = None;
+            cx.notify();
+            return;
+        };
+        if self.transcript.as_ref().is_some_and(|t| t.id == id) {
+            return;
+        }
+        self.tseq += 1;
+        let seq = self.tseq;
+        self.transcript = Some(Transcript {
+            id: id.clone(),
+            messages: Arc::new(Vec::new()),
+            list: gpui_kit::ListState::new(0, ListAlignment::Top, px(400.)),
+            loading: true,
+        });
+        cx.notify();
+        let service = self.service.clone();
+        let handle = window.window_handle();
+        self._load = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(TRANSCRIPT_DEBOUNCE).await;
+            let load_id = id.clone();
+            let messages = cx
+                .background_executor()
+                .spawn(async move { service.transcript(&load_id).map(|t| rows::messages(&t)).unwrap_or_default() })
+                .await;
+            handle
+                .update(cx, |_, _window, cx| {
+                    this.update(cx, |this, cx| {
+                        if this.tseq == seq {
+                            let list = gpui_kit::ListState::new(messages.len(), ListAlignment::Top, px(400.));
+                            this.transcript = Some(Transcript { id, messages: Arc::new(messages), list, loading: false });
+                            cx.notify();
+                        }
+                    })
+                    .ok();
+                })
+                .ok();
+        }));
+    }
+
+    fn render_transcript(&self, cx: &mut Context<Self>) -> AnyElement {
+        let muted = cx.theme().muted_foreground;
+        let note = |text: &str| div().size_full().flex().items_center().justify_center().text_color(muted).child(text.to_string()).into_any_element();
+        let Some(t) = &self.transcript else { return note("Select a session") };
+        if t.loading {
+            return note("Loading…");
+        }
+        if t.messages.is_empty() {
+            return note("No messages");
+        }
+        let header = self.sessions.get(&t.id).map(|s| (rows::title(s), rows::meta(s)));
+        let messages = t.messages.clone();
+        let seq = self.tseq;
+        let accent = cx.theme().primary;
+        let border = cx.theme().border;
+        let rows = gpui_kit::list(t.list.clone(), move |ix, _window, _cx| {
+            let m = &messages[ix];
+            let who = div()
+                .font_weight(FontWeight::BOLD)
+                .text_color(if m.role == "user" { accent } else { muted })
+                .child(m.label.clone());
+            v_flex()
+                .w_full()
+                .px_4()
+                .py_3()
+                .gap_1()
+                .border_b_1()
+                .border_color(border)
+                .child(h_flex().gap_2().text_xs().child(who).children(m.when.clone().map(|w| div().text_color(muted).child(w))))
+                .child(TextView::markdown(SharedString::from(format!("m{seq}-{ix}")), m.text.clone()).selectable(true))
+                .into_any_element()
+        })
+        .size_full();
+        v_flex()
+            .size_full()
+            .child(match header {
+                Some((title, meta)) => v_flex()
+                    .px_4()
+                    .py_2()
+                    .border_b_1()
+                    .border_color(border)
+                    .child(div().truncate().child(title))
+                    .child(div().text_xs().text_color(muted).truncate().child(meta))
+                    .into_any_element(),
+                None => div().into_any_element(),
+            })
+            .child(div().id("transcript").relative().flex_1().min_h_0().child(rows).vertical_scrollbar(&t.list))
+            .into_any_element()
     }
 
     fn query_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -215,6 +339,7 @@ impl App_ {
 
 impl Render for App_ {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let transcript = self.render_transcript(cx);
         let theme = cx.theme();
         v_flex()
             .size_full()
@@ -226,7 +351,13 @@ impl Render for App_ {
             .bg(theme.background)
             .text_color(theme.foreground)
             .child(div().p_2().child(Input::new(&self.input)))
-            .child(div().flex_1().min_h_0().child(List::new(&self.list)))
+            .child(
+                h_flex()
+                    .flex_1()
+                    .min_h_0()
+                    .child(div().w(relative(0.4)).h_full().border_r_1().border_color(theme.border).child(List::new(&self.list)))
+                    .child(div().flex_1().min_w_0().h_full().child(transcript)),
+            )
             .child(div().px_3().py_1().text_xs().text_color(theme.muted_foreground).child(self.status.clone()))
     }
 }

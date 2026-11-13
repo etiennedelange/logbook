@@ -1,7 +1,7 @@
 //! What the list shows, as plain data. No GPUI in here, so it is unit-tested on any platform.
 
 use chrono::{DateTime, Local};
-use logbook_core::dto::{SearchHitDto, SessionDto};
+use logbook_core::dto::{SearchHitDto, SessionDto, TimelineEntryDto};
 use std::collections::HashMap;
 use std::ops::Range;
 
@@ -103,6 +103,37 @@ pub fn parse_snippet(raw: &str) -> Snippet {
     Snippet { text, hits }
 }
 
+/// One transcript message, ready to draw.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Message {
+    pub role: String,
+    /// "You", "Assistant", or the raw role for anything else (tool output, system).
+    pub label: String,
+    pub when: Option<String>,
+    pub text: String,
+}
+
+/// A message longer than this is cut, so one huge tool output can't stall layout.
+pub const MESSAGE_MAX_CHARS: usize = 20_000;
+
+pub fn messages(entries: &[TimelineEntryDto]) -> Vec<Message> {
+    entries
+        .iter()
+        .map(|e| {
+            let label = match e.role.as_str() {
+                "user" => "You".to_string(),
+                "assistant" => "Assistant".to_string(),
+                other => other.to_string(),
+            };
+            let text = match e.text.char_indices().nth(MESSAGE_MAX_CHARS) {
+                Some((i, _)) => format!("{}\n\n… (cut: {} more characters)", &e.text[..i], e.text[i..].chars().count()),
+                None => e.text.clone(),
+            };
+            Message { role: e.role.clone(), label, when: e.timestamp.as_deref().map(when), text }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -184,5 +215,16 @@ mod tests {
         let rows = hit_rows(&[hit("copilot:a"), hit("copilot:gone")], &by_id);
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].snippet.as_ref().unwrap().hits, vec![0..1]);
+    }
+
+    #[test]
+    fn messages_label_roles_and_cut_huge_text_on_a_char_boundary() {
+        let entry = |role: &str, text: String| TimelineEntryDto { role: role.into(), timestamp: Some("2026-11-13T12:05:00+00:00".into()), text };
+        let out = messages(&[entry("user", "hi".into()), entry("tool", "é".repeat(MESSAGE_MAX_CHARS + 5))]);
+        assert_eq!(out[0].label, "You");
+        assert_eq!(out[1].label, "tool");
+        assert!(out[0].when.as_deref().unwrap().starts_with("2026-11-"));
+        assert!(out[1].text.starts_with(&"é".repeat(MESSAGE_MAX_CHARS)));
+        assert!(out[1].text.ends_with("(cut: 5 more characters)"));
     }
 }

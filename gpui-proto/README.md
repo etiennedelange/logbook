@@ -11,5 +11,7 @@ cargo test
 
 Linux needs `libxkbcommon-dev libxkbcommon-x11-dev` (and a Vulkan driver such as `mesa-vulkan-drivers` to open a window).
 
-- `src/rows.rs`: what the list shows, as plain data (titles, meta line, snippet ranges). Unit-tested.
-- `src/main.rs`: window, search box, list. Keys: Up/Down move, Enter copies the resume command.
+- `src/rows.rs` (the library): what the screen shows, as plain data (titles, meta line, snippet ranges, transcript
+  messages). Unit-tested; builds without a window system.
+- `src/main.rs`: window, search box, session list, transcript pane. Keys: Up/Down move, Enter copies the resume command.
+  The transcript loads for the selected session after a short pause; text in it is selectable.
