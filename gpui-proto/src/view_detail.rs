@@ -113,6 +113,9 @@ impl Logbook {
     /// The header's right end: the branch pill, the update pill, About and the window controls.
     pub fn header_end(&self, pill: Option<(String, String)>, wide: bool, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = self.pal;
+        // 40% of the detail pane, as an absolute width: a percentage here would resolve against this
+        // shrink-wrapped box, which a long branch name widens, leaving a gap after the window buttons.
+        let max_pill = self.detail_width(window) * 0.4;
         div()
             .flex()
             .flex_none()
@@ -122,7 +125,7 @@ impl Logbook {
             .children(pill.filter(|(w, _)| !w.is_empty()).map(|(w, t)| {
                 div()
                     .id("branch-pill")
-                    .max_w(relative(0.4))
+                    .max_w(u(max_pill))
                     .flex_none()
                     .truncate()
                     .rounded_full()
@@ -142,6 +145,13 @@ impl Logbook {
                     .on_click(cx.listener(|this, _, _, cx| this.set_about(true, cx))),
             )
             .child(self.window_controls(window))
+    }
+
+    /// The detail pane's width in CSS pixels: what is left of the window after the sidebar and the list.
+    fn detail_width(&self, window: &Window) -> f32 {
+        let vw = f32::from(window.viewport_size().width) / self.zoom.max(0.1);
+        let avail = vw - if vw < crate::view_sidebar::RAIL_BELOW { 56.0 } else { 220.0 };
+        avail - (avail * 0.4).max(300.0)
     }
 
     /// In the toolbar once GitHub has a newer release; opens What's New. Nothing shows otherwise.

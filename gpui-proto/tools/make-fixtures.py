@@ -37,7 +37,7 @@ for i in range(60):
     open(d+"/events.jsonl","w").write("\n".join(json.dumps(e) for e in ev)+"\n")
 # one long session, newest
 sid=str(uuid.UUID(int=1)); d=f"{base}/{sid}"; os.makedirs(d,exist_ok=True); cwd=work("logbook")
-open(d+"/workspace.yaml","w").write(f"id: {sid}\nname: Long session with 3000 messages\ncwd: {cwd}\nbranch: main\ncreated_at: {iso(30)}\nupdated_at: {iso(0.2)}\n")
+open(d+"/workspace.yaml","w").write(f"id: {sid}\nname: Long session with 3000 messages\ncwd: {cwd}\nbranch: bugfix/alb-set-security-groups-permission\ncreated_at: {iso(30)}\nupdated_at: {iso(0.2)}\n")
 ev=[{"type":"session.start","timestamp":iso(30)}]
 table="| step | result |\n|------|--------|\n| scan | ok |\n| index | slow |"
 for k in range(1500):
