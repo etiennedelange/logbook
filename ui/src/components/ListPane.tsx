@@ -71,7 +71,7 @@ export function ListPane() {
 
   return (
     <section aria-label="Sessions" className="flex min-h-0 min-w-0 flex-col border-r border-line bg-list">
-      <PaneHeader title={title} sub={sub}>
+      <PaneHeader title={title}>
         {repo && (
           <button
             type="button"
@@ -90,6 +90,7 @@ export function ListPane() {
           label="Search sessions"
           placeholder="Search names, repos and transcripts"
         />
+        {sub && <p data-list-sub className="m-0 mt-2 truncate px-1 text-[12px] text-mute">{sub}</p>}
       </div>
 
       <div

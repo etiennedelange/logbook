@@ -55,7 +55,7 @@ export function About() {
       onClick={(e) => e.target === e.currentTarget && setAbout(false)}
       className="m-auto max-h-[min(720px,calc(100vh-48px))] w-[min(540px,calc(100vw-48px))] overflow-hidden rounded-xl border border-line bg-bg p-0 text-ink shadow-2xl backdrop:bg-black/50 open:flex open:flex-col"
     >
-      <header className="flex h-[48px] flex-none items-center gap-[10px] border-b border-line pl-5 pr-3">
+      <header className="flex h-[40px] flex-none items-center gap-[10px] border-b border-line pl-5 pr-3">
         <span className="grid h-[26px] w-[26px] flex-none place-items-center rounded-[7px] bg-accent text-accent-ink">
           <Icon name="logbook" size={15} />
         </span>

@@ -105,13 +105,14 @@ export function StatsPane() {
 
   return (
     <section aria-label="Stats" className="col-span-2 flex min-h-0 min-w-0 flex-col bg-bg">
-      <PaneHeader title="Stats" sub={sub} className="pl-6 pr-3">
+      <PaneHeader title="Stats" className="pl-6 pr-3">
         <UpdatePill />
         <AboutButton />
         <WindowControls />
       </PaneHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 pb-6 pt-4">
+        <p className="m-0 text-[13px] text-mute">{sub}</p>
         <div className={cx('flex flex-wrap items-center gap-x-4 gap-y-2', sessions.length === 0 && 'hidden')}>
           <div
             role="group"

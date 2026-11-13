@@ -484,7 +484,7 @@ function IconAction(p: { icon: IconName; label: string; onClick: () => void }) {
 function NothingSelected() {
   return (
     <section aria-label="Session" data-pane="detail" className="flex min-h-0 min-w-0 flex-col">
-      <PaneHeader title="No session selected" sub="Pick one to read its transcript" className="px-5">
+      <PaneHeader title="No session selected" className="px-5">
         <UpdatePill />
         <AboutButton />
         <WindowControls />
