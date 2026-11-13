@@ -6,6 +6,8 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-11-13
+
 ### Changed
 - **Window buttons look like Windows 11's.** Minimise, maximise and close are now full-height, flush with
   the top-right corner, with the close button turning red edge to edge. The title bars are also much shorter (32px, like Windows, instead of 60px): the line under a pane's title moved into
