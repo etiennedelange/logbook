@@ -75,7 +75,7 @@ export function DetailPane() {
           <span
             data-tauri-drag-region
             title={[repo, session.branch].filter(Boolean).join(' · ')}
-            className="max-w-[40%] flex-none truncate rounded-full bg-raised px-[10px] py-[3px] font-mono text-[11px] text-soft"
+            className="max-w-[40%] flex-none truncate rounded-full bg-raised px-[10px] py-[2px] font-mono text-[11px] text-soft"
           >
             {where}
           </span>

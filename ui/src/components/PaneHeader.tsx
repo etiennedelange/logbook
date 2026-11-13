@@ -1,7 +1,7 @@
 import { cx } from '../cx';
 
 /** Pane top bar. Every pane uses the same height so their bottom borders line up across the window. */
-export const HEADER_H = 'h-[60px]';
+export const HEADER_H = 'h-[48px]';
 
 export function PaneHeader({
   title,
@@ -25,11 +25,11 @@ export function PaneHeader({
       className={cx('flex flex-none items-center gap-[10px] border-b border-line', HEADER_H, className ?? 'px-4')}
     >
       <div data-tauri-drag-region className="flex min-w-0 flex-1 flex-col gap-px">
-        <h1 data-tauri-drag-region className="truncate text-[15px] font-semibold" title={title}>
+        <h1 data-tauri-drag-region className="truncate text-[15px] font-semibold leading-tight" title={title}>
           {title}
         </h1>
         {sub && (
-          <span data-tauri-drag-region className="truncate text-[12px] text-mute" title={subTitle}>
+          <span data-tauri-drag-region className="truncate text-[12px] leading-tight text-mute" title={subTitle}>
             {sub}
           </span>
         )}
