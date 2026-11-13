@@ -1,0 +1,12 @@
+[package]
+name = "logbook-gpui-proto"
+version = "0.0.0"
+edition = "2021"
+description = "Experiment: a GPUI front end over logbook-core (see docs/PLAN.md)"
+publish = false
+
+[dependencies]
+logbook-core = { path = "../core" }
+gpui-kit = "0.9.1"
+anyhow = "1"
+chrono = "0.4"

@@ -1,6 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["core", "src-tauri"]
+members = ["core", "src-tauri", "gpui-proto"]
+# gpui-proto is an experiment: a plain `cargo build`/`cargo test` skips it (and GPUI's system libraries).
+# Build it with `cargo run -p logbook-gpui-proto`.
+default-members = ["core", "src-tauri"]
 
 # Line tables keep file:line in backtraces but make debug builds link much faster.
 [profile.dev]

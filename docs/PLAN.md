@@ -168,6 +168,22 @@ Tests: fixture lines for each edit tool in `core/tests/fixtures/claude/`; `pnpm 
 file rows and both searches; mock data with files; new screenshot scenes (Files tab, file diff). An e2e step
 for path and ID search.
 
+## Experiment: a GPUI front end
+
+**Started 2026-11-13.** `gpui-proto/`: Logbook's search-and-list screen in GPUI (via [gpui-kit](https://crates.io/crates/gpui-kit)
+0.9.1) calling `SessionService` directly, no IPC. It answers one question: is it meaningfully lighter and faster than
+the WebView2 build, and is a transcript view tractable? The Tauri/React app stays the shipping UI either way.
+
+Built: search box (debounced, stale results dropped), virtualized list with matched-word highlighting, Up/Down, Enter
+copies the resume command, background re-scan. Not built: detail/transcript pane (step 3), filters, resume, theming.
+Run it with `cargo run -p logbook-gpui-proto` (it is not a default workspace member). Checked on Linux under Xvfb
+with a synthetic 600-session history; **nothing has been measured on Windows yet**.
+
+Continue only if, on a real history, idle memory is under about half of the WebView2 build's (sum the `msedgewebview2`
+processes), cold start to a usable list is no slower, keystroke-to-results is no slower, and a 5k-message transcript
+scrolls smoothly with selection and copy working. Stop if it won't build or render on Windows, text selection or IME is
+unusable, or the memory saving is under about 30%.
+
 ## Later, on request
 
 - **Gemini CLI / Antigravity CLI.** Individual Gemini CLI users moved to Antigravity CLI (`agy`) on
