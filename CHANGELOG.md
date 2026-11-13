@@ -6,6 +6,10 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **Window buttons look like Windows 11's.** Minimise, maximise and close are now full-height, flush with
+  the top-right corner, with the close button turning red edge to edge.
+
 ## [0.6.4] - 2026-11-05
 
 ### Added
