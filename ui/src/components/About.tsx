@@ -60,7 +60,7 @@ export function About() {
           <Icon name="logbook" size={15} />
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-px">
-          <h1 id="about-title" className="text-[15px] font-semibold">
+          <h1 id="about-title" className="text-[14px] font-semibold">
             About Logbook
           </h1>
           <span className="flex items-center gap-2 text-[12px] text-mute">

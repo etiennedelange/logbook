@@ -277,7 +277,7 @@ function Totals({ stats, days }: { stats: Stats; days: number }) {
           style={{ animationDelay: `${i * 70}ms` }}
         >
           <span className="text-[12px] text-mute">{t.label}</span>
-          <span className="text-[26px] font-semibold tabular-nums tracking-[-0.01em]" data-stat={t.label}>
+          <span className="text-[22px] font-semibold tabular-nums tracking-[-0.01em]" data-stat={t.label}>
             {t.value}
           </span>
           <span className="text-[11px] text-mute">{t.sub}</span>
@@ -318,7 +318,7 @@ function StreakTile({ streak, longest }: { streak: number; longest: number }) {
       style={{ animationDelay: '210ms' }}
     >
       <span className="text-[12px] text-mute">Current streak</span>
-      <span className="flex items-center gap-2 text-[26px] font-semibold tabular-nums tracking-[-0.01em]">
+      <span className="flex items-center gap-2 text-[22px] font-semibold tabular-nums tracking-[-0.01em]">
         <span className="flex-1" data-stat="Current streak">
           {plural(streak, 'day', 'days')}
         </span>
@@ -369,7 +369,7 @@ function ActivityMap({ stats, days, flash }: { stats: Stats; days: number; flash
           className="st-sheen max-w-full overflow-x-auto"
         >
           <div className="flex gap-[3px]">
-            <div className="mr-1 flex flex-col gap-[3px] pt-[17px] font-mono text-[10px] leading-[13px] text-mute">
+            <div className="mr-1 flex flex-col gap-[3px] pt-[17px] font-mono text-[11px] leading-[13px] text-mute">
               {['Mon', '', 'Wed', '', 'Fri', '', 'Sun'].map((d, i) => (
                 <span key={i} className="h-[13px]">
                   {d}
@@ -378,7 +378,7 @@ function ActivityMap({ stats, days, flash }: { stats: Stats; days: number; flash
             </div>
             {stats.weeks.map((w, wi) => (
               <div key={wi} className="flex flex-col gap-[3px]">
-                <span className="h-[14px] w-[13px] overflow-visible whitespace-nowrap text-[10px] text-mute">
+                <span className="h-[14px] w-[13px] overflow-visible whitespace-nowrap text-[11px] text-mute">
                   {months[wi]}
                 </span>
                 {w.map((d, di) => (
@@ -470,7 +470,7 @@ function Hours({ stats, now }: { stats: Stats; now: Date }) {
             />
           ))}
         </div>
-        <div className="mt-[5px] flex gap-[3px] font-mono text-[10px] text-mute">
+        <div className="mt-[5px] flex gap-[3px] font-mono text-[11px] text-mute">
           {stats.hours.map((_, i) => (
             <span key={i} className={cx('flex-1', i === h && 'text-accent-text')}>
               {i === h ? 'now' : i % 6 === 0 && Math.abs(i - h) > 1 ? String(i).padStart(2, '0') : ''}

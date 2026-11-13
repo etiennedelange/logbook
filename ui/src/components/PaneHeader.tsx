@@ -19,7 +19,7 @@ export function PaneHeader({
       className={cx('flex flex-none items-center gap-[10px] border-b border-line', HEADER_H, className ?? 'px-4')}
     >
       <div data-tauri-drag-region className="flex min-w-0 flex-1 flex-col">
-        <h1 data-tauri-drag-region className="truncate text-[15px] font-semibold leading-tight" title={title}>
+        <h1 data-tauri-drag-region className="truncate text-[14px] font-semibold leading-tight" title={title}>
           {title}
         </h1>
       </div>

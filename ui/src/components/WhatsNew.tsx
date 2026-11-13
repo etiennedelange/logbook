@@ -61,7 +61,7 @@ export function WhatsNew() {
               <Icon name="update" size={15} />
             </span>
             <div className="flex min-w-0 flex-1 flex-col gap-px">
-              <h1 id="whats-new-title" className="text-[15px] font-semibold">
+              <h1 id="whats-new-title" className="text-[14px] font-semibold">
                 What’s New
               </h1>
               <span id="whats-new-sub" className="text-[12px] text-mute">
