@@ -8,6 +8,9 @@ use gpui_kit::component::input::Input;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
+/// A caption button's width: narrower than Windows 11's 46px, to keep the header compact.
+const CAPTION_W: f32 = 36.0;
+
 /// Pane top bar height. Every pane uses the same height so their bottom borders line up.
 pub const HEADER_H: f32 = 32.0;
 
@@ -61,7 +64,7 @@ impl Logbook {
         let button = move |id: &'static str, glyph: &'static str, area: WindowControlArea, close: bool| {
             let el = div()
                 .id(id)
-                .w(u(46.))
+                .w(u(CAPTION_W))
                 .h_full()
                 .flex()
                 .flex_none()
@@ -84,7 +87,7 @@ impl Logbook {
             .flex()
             .flex_none()
             .self_stretch()
-            .ml(u(4.))
+            .ml(u(2.))
             .mr(u(-12.))
             .child(button("win-min", "win-min", WindowControlArea::Min, false))
             .child(button("win-max", if maximized { "win-restore" } else { "win-max" }, WindowControlArea::Max, false))

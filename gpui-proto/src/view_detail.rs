@@ -120,7 +120,7 @@ impl Logbook {
             .flex()
             .flex_none()
             .items_center()
-            .gap(u(10.))
+            .gap(u(8.))
             .self_stretch()
             .children(pill.filter(|(w, _)| !w.is_empty()).map(|(w, t)| {
                 div()
