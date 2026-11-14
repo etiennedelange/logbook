@@ -3,8 +3,8 @@
 use crate::app::{Logbook, WhatsNewMode};
 use crate::ui::*;
 use crate::view_chrome::*;
-use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::base::TextView;
+use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 use logbook_app::model::agents::{agent_info, source_rows, AGENTS};
@@ -35,11 +35,20 @@ fn ago(d: Duration) -> String {
 
 impl Logbook {
     /// A modal over the whole window: a dim backdrop that closes it, and the panel.
-    fn modal(&self, id: &'static str, width: f32, max_h: f32, panel: Div, on_close: impl Fn(&mut Logbook, &mut Context<Logbook>) + Clone + 'static, cx: &mut Context<Self>) -> AnyElement {
+    fn modal(
+        &self,
+        id: &'static str,
+        width: f32,
+        max_h: f32,
+        panel: Div,
+        on_close: impl Fn(&mut Logbook, &mut Context<Logbook>) + Clone + 'static,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let p = self.pal;
         let close = on_close.clone();
         div()
             .id(id)
+            .test_id(id)
             .absolute()
             .inset_0()
             .flex()
@@ -68,7 +77,15 @@ impl Logbook {
             .into_any_element()
     }
 
-    fn dialog_header(&self, glyph: &'static str, title: &str, sub: impl IntoElement, close_id: &'static str, cx: &mut Context<Self>, on_close: impl Fn(&mut Logbook, &mut Context<Logbook>) + 'static) -> Div {
+    fn dialog_header(
+        &self,
+        glyph: &'static str,
+        title: &str,
+        sub: impl IntoElement,
+        close_id: &'static str,
+        cx: &mut Context<Self>,
+        on_close: impl Fn(&mut Logbook, &mut Context<Logbook>) + 'static,
+    ) -> Div {
         let p = self.pal;
         div()
             .flex()
@@ -80,8 +97,27 @@ impl Logbook {
             .pr(u(12.))
             .border_b_1()
             .border_color(p.line)
-            .child(div().flex().items_center().justify_center().size(u(26.)).flex_none().rounded(u(7.)).bg(p.accent).child(icon(glyph, 15., p.accent_ink)))
-            .child(div().flex().flex_col().flex_1().min_w_0().gap(px(1.)).child(div().text_size(u(14.)).font_weight(SEMIBOLD).child(title.to_string())).child(sub))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .size(u(26.))
+                    .flex_none()
+                    .rounded(u(7.))
+                    .bg(p.accent)
+                    .child(icon(glyph, 15., p.accent_ink)),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .min_w_0()
+                    .gap(px(1.))
+                    .child(div().text_size(u(14.)).font_weight(SEMIBOLD).child(title.to_string()))
+                    .child(sub),
+            )
             .child(
                 icon_button(close_id, "close", 14., 28., p, p.btn)
                     .tooltip_text("Close (Esc)")
@@ -103,6 +139,7 @@ impl Logbook {
             .child(
                 div()
                     .id("check-updates")
+                    .test_id("check-updates")
                     .rounded(u(4.))
                     .px(u(4.))
                     .text_color(if checking { p.mute } else { p.accent_text })
@@ -174,17 +211,39 @@ impl Logbook {
             .child(section("Keyboard", vec![self.shortcuts().into_any_element()]));
 
         let panel = div()
-            .child(self.dialog_header("logbook", "About Logbook", sub, "about-close", cx, |this, cx| this.set_about(false, cx)))
-            .child(div().relative().flex_1().min_h_0().flex().flex_col().child(body).vertical_scrollbar(&self.about_scroll));
+            .child(self.dialog_header("logbook", "About Logbook", sub, "about-close", cx, |this, cx| {
+                this.set_about(false, cx)
+            }))
+            .child(
+                div()
+                    .relative()
+                    .flex_1()
+                    .min_h_0()
+                    .flex()
+                    .flex_col()
+                    .child(body)
+                    .vertical_scrollbar(&self.about_scroll),
+            );
         self.modal("about", 540., 720., panel, |this, cx| this.set_about(false, cx), cx)
     }
 
     /// A labelled path with an "open folder" button.
-    fn path_row(&self, id: (&'static str, usize), label: &str, value: &str, openable: bool, cx: &mut Context<Self>) -> AnyElement {
+    fn path_row(
+        &self,
+        id: (&'static str, usize),
+        label: &str,
+        value: &str,
+        openable: bool,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let p = self.pal;
         let v = value.to_string();
         // For a file (the index), open its folder.
-        let folder = if label == "Index" { std::path::Path::new(value).parent().map(|x| x.display().to_string()).unwrap_or_default() } else { value.to_string() };
+        let folder = if label == "Index" {
+            std::path::Path::new(value).parent().map(|x| x.display().to_string()).unwrap_or_default()
+        } else {
+            value.to_string()
+        };
         div()
             .flex()
             .items_center()
@@ -226,7 +285,9 @@ impl Logbook {
                 .style(crate::view_detail::md_style(&p, false))
                 .selectable(true)
                 .into_any_element(),
-            None => div().child("This release has no notes here. The release page lists what changed.").into_any_element(),
+            None => {
+                div().child("This release has no notes here. The release page lists what changed.").into_any_element()
+            }
         };
         let version = w.version.clone();
         let footer = div()
@@ -267,35 +328,60 @@ impl Logbook {
                             .on_click(cx.listener(|this, _, _, cx| this.whats_new_close(cx))),
                     )
                     .child(
-                        accent_button("whats-get", if updating { "Updating…" } else if has_installer { "Update now" } else { "Get this version" }, p)
-                            .tooltip_text(if has_installer { "Logbook restarts on the new version once it’s installed" } else { "Opens the release page: this release has no installer for this build" })
-                            .when(updating, |d| d.opacity(0.7))
-                            .on_click(cx.listener(|this, _, _, cx| this.install_update(cx))),
+                        accent_button(
+                            "whats-get",
+                            if updating {
+                                "Updating…"
+                            } else if has_installer {
+                                "Update now"
+                            } else {
+                                "Get this version"
+                            },
+                            p,
+                        )
+                        .tooltip_text(if has_installer {
+                            "Logbook restarts on the new version once it’s installed"
+                        } else {
+                            "Opens the release page: this release has no installer for this build"
+                        })
+                        .when(updating, |d| d.opacity(0.7))
+                        .on_click(cx.listener(|this, _, _, cx| this.install_update(cx))),
                     )
                     .into_any_element()
             } else {
-                accent_button("whats-ok", "Got it", p).on_click(cx.listener(|this, _, _, cx| this.whats_new_close(cx))).into_any_element()
+                accent_button("whats-ok", "Got it", p)
+                    .on_click(cx.listener(|this, _, _, cx| this.whats_new_close(cx)))
+                    .into_any_element()
             });
-        let panel = div()
-            .child(self.dialog_header("update", "What’s New", sub, "whats-close", cx, |this, cx| this.whats_new_close(cx)))
-            .child(
-                div().relative().flex_1().min_h_0().flex().flex_col().child(
+        let panel =
+            div()
+                .child(self.dialog_header("update", "What’s New", sub, "whats-close", cx, |this, cx| {
+                    this.whats_new_close(cx)
+                }))
+                .child(
                     div()
-                        .id("whats-scroll")
+                        .relative()
                         .flex_1()
                         .min_h_0()
-                        .overflow_y_scroll()
-                        .track_scroll(&self.notes_scroll)
-                        .px(u(20.))
-                        .py(u(20.))
-                        .text_size(u(13.))
-                        .line_height(relative(1.6))
-                        .text_color(p.soft)
-                        .child(notes),
+                        .flex()
+                        .flex_col()
+                        .child(
+                            div()
+                                .id("whats-scroll")
+                                .flex_1()
+                                .min_h_0()
+                                .overflow_y_scroll()
+                                .track_scroll(&self.notes_scroll)
+                                .px(u(20.))
+                                .py(u(20.))
+                                .text_size(u(13.))
+                                .line_height(relative(1.6))
+                                .text_color(p.soft)
+                                .child(notes),
+                        )
+                        .vertical_scrollbar(&self.notes_scroll),
                 )
-                .vertical_scrollbar(&self.notes_scroll),
-            )
-            .child(footer);
+                .child(footer);
         Some(self.modal("whats-new", 520., 640., panel, |this, cx| this.whats_new_close(cx), cx))
     }
 
@@ -336,13 +422,20 @@ impl Logbook {
                                 .text_size(u(13.))
                                 .text_color(if found { p.ink } else { p.mute })
                                 .child(div().flex_1().min_w_0().truncate().child(info.name))
-                                .child(div().whitespace_nowrap().when(found, |d| d.font_family(MONO).text_size(u(11.))).when(!found, |d| d.text_size(u(11.5))).text_color(p.mute).child(if !found {
-                                    "Not found".to_string()
-                                } else if r.count > 0 {
-                                    plural(r.count, "session", "sessions")
-                                } else {
-                                    "No sessions yet".to_string()
-                                })),
+                                .child(
+                                    div()
+                                        .whitespace_nowrap()
+                                        .when(found, |d| d.font_family(MONO).text_size(u(11.)))
+                                        .when(!found, |d| d.text_size(u(11.5)))
+                                        .text_color(p.mute)
+                                        .child(if !found {
+                                            "Not found".to_string()
+                                        } else if r.count > 0 {
+                                            plural(r.count, "session", "sessions")
+                                        } else {
+                                            "No sessions yet".to_string()
+                                        }),
+                                ),
                         )
                         .children(r.dirs.iter().enumerate().map(|(di, d)| {
                             let dir = d.dir.clone();
@@ -351,7 +444,17 @@ impl Logbook {
                                 .items_center()
                                 .gap(u(4.))
                                 .min_w_0()
-                                .child(div().flex_1().min_w_0().truncate().font_family(MONO).text_size(u(11.5)).text_color(if d.found { p.soft } else { p.mute }).tooltip_text_static(d.dir.clone()).child(tail(&d.short, 34)))
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_w_0()
+                                        .truncate()
+                                        .font_family(MONO)
+                                        .text_size(u(11.5))
+                                        .text_color(if d.found { p.soft } else { p.mute })
+                                        .tooltip_text_static(d.dir.clone())
+                                        .child(tail(&d.short, 34)),
+                                )
                                 .when(d.found, |e| {
                                     e.child(
                                         icon_button(("src-open", ri * 10 + di), "folder", 13., 24., p, p.btn)
@@ -361,22 +464,28 @@ impl Logbook {
                                 })
                         }))
                         .when(r.kept > 0, |d| {
-                            d.child(div().text_size(u(11.5)).text_color(p.mute).child(format!("{} kept after {} deleted {}", r.kept, info.name, if r.kept == 1 { "it" } else { "them" })))
+                            d.child(div().text_size(u(11.5)).text_color(p.mute).child(format!(
+                                "{} kept after {} deleted {}",
+                                r.kept,
+                                info.name,
+                                if r.kept == 1 { "it" } else { "them" }
+                            )))
                         }),
                 )
         });
         let status = if self.status.indexing {
             div().flex().items_center().gap(u(8.)).child(spinner("refresh", 11., p.accent_text, true)).child("Reading…")
         } else {
-            div()
-                .flex()
-                .items_center()
-                .gap(u(8.))
-                .child(div().size(u(6.)).flex_none().rounded_full().bg(p.ok))
-                .child(format!("Up to date{}", self.read_at.map(|t| format!(" · read {}", ago(t.elapsed()))).unwrap_or_default()))
+            div().flex().items_center().gap(u(8.)).child(div().size(u(6.)).flex_none().rounded_full().bg(p.ok)).child(
+                format!(
+                    "Up to date{}",
+                    self.read_at.map(|t| format!(" · read {}", ago(t.elapsed()))).unwrap_or_default()
+                ),
+            )
         };
         div()
             .id("sources-popover")
+            .test_id("sources-popover")
             .absolute()
             .left(u(if rail { 60. } else { 8. }))
             .bottom(u(if rail { 10. } else { 56. }))
@@ -408,10 +517,38 @@ impl Logbook {
                     .pb(u(10.))
                     .pt(u(14.))
                     .child(div().text_size(u(13.)).font_weight(SEMIBOLD).text_color(p.ink).child("Sources"))
-                    .child(div().text_size(u(12.)).line_height(relative(1.45)).text_color(p.mute).child("Logbook reads these folders and never changes them.")),
+                    .child(
+                        div()
+                            .text_size(u(12.))
+                            .line_height(relative(1.45))
+                            .text_color(p.mute)
+                            .child("Logbook reads these folders and never changes them."),
+                    ),
             )
-            .child(div().id("sources-list").flex().flex_col().flex_1().min_h_0().overflow_y_scroll().track_scroll(&self.sources_scroll).px(u(6.)).pb(u(6.)).children(items))
-            .child(div().flex_none().border_t_1().border_color(p.line).px(u(16.)).py(u(10.)).text_size(u(11.5)).text_color(p.mute).child(status))
+            .child(
+                div()
+                    .id("sources-list")
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_y_scroll()
+                    .track_scroll(&self.sources_scroll)
+                    .px(u(6.))
+                    .pb(u(6.))
+                    .children(items),
+            )
+            .child(
+                div()
+                    .flex_none()
+                    .border_t_1()
+                    .border_color(p.line)
+                    .px(u(16.))
+                    .py(u(10.))
+                    .text_size(u(11.5))
+                    .text_color(p.mute)
+                    .child(status),
+            )
     }
 
     /// A short-lived confirmation or error, pinned to the bottom of the window.

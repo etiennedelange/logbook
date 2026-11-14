@@ -96,9 +96,12 @@ fn decode_text(b64: &str) -> Result<String, String> {
 /// Checks `data` against a release's signature with `pubkey` (both base64 of minisign's text files, as
 /// `latest.json` and the app carry them). Errors say why, never what was inside.
 pub fn verify(data: &[u8], signature: &str, pubkey: &str) -> Result<(), String> {
-    let key = minisign_verify::PublicKey::decode(&decode_text(pubkey)?).map_err(|e| format!("the update key isn't usable: {e}"))?;
-    let sig = minisign_verify::Signature::decode(&decode_text(signature)?).map_err(|e| format!("the update's signature isn't readable: {e}"))?;
-    key.verify(data, &sig, true).map_err(|_| "the downloaded installer doesn't match its signature, so it was not run".to_string())
+    let key = minisign_verify::PublicKey::decode(&decode_text(pubkey)?)
+        .map_err(|e| format!("the update key isn't usable: {e}"))?;
+    let sig = minisign_verify::Signature::decode(&decode_text(signature)?)
+        .map_err(|e| format!("the update's signature isn't readable: {e}"))?;
+    key.verify(data, &sig, true)
+        .map_err(|_| "the downloaded installer doesn't match its signature, so it was not run".to_string())
 }
 
 /// The release page URL, for a string made only of version characters (it ends up in a URL).
@@ -148,16 +151,30 @@ mod tests {
 
     #[test]
     fn the_installer_comes_from_the_windows_entry_over_https_only() {
-        let json = |url: &str| format!(r#"{{"version":"0.7.0","platforms":{{"windows-x86_64":{{"url":"{url}","signature":" sig \n"}}}}}}"#);
-        let u = parse_latest(&json("https://github.com/x/releases/download/v0.7.0/Logbook_0.7.0_x64-setup.exe"), "0.6.5").unwrap().unwrap();
-        assert_eq!(u.installer.unwrap(), Installer { url: "https://github.com/x/releases/download/v0.7.0/Logbook_0.7.0_x64-setup.exe".into(), signature: "sig".into() });
+        let json = |url: &str| {
+            format!(r#"{{"version":"0.7.0","platforms":{{"windows-x86_64":{{"url":"{url}","signature":" sig \n"}}}}}}"#)
+        };
+        let u =
+            parse_latest(&json("https://github.com/x/releases/download/v0.7.0/Logbook_0.7.0_x64-setup.exe"), "0.6.5")
+                .unwrap()
+                .unwrap();
+        assert_eq!(
+            u.installer.unwrap(),
+            Installer {
+                url: "https://github.com/x/releases/download/v0.7.0/Logbook_0.7.0_x64-setup.exe".into(),
+                signature: "sig".into()
+            }
+        );
         assert_eq!(parse_latest(&json("http://example.com/a.exe"), "0.6.5").unwrap().unwrap().installer, None);
         assert_eq!(parse_latest(r#"{"version":"0.7.0"}"#, "0.6.5").unwrap().unwrap().installer, None);
     }
 
     #[test]
     fn release_page_takes_only_version_characters() {
-        assert_eq!(release_page("0.2.0").as_deref(), Some("https://github.com/etiennedelange/logbook/releases/tag/v0.2.0"));
+        assert_eq!(
+            release_page("0.2.0").as_deref(),
+            Some("https://github.com/etiennedelange/logbook/releases/tag/v0.2.0")
+        );
         assert_eq!(release_page(""), None);
         assert_eq!(release_page("1.0/../../evil"), None);
     }

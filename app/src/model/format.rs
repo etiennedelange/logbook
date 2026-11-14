@@ -299,12 +299,12 @@ pub fn snippet_segments(snippet: &str) -> Vec<Segment> {
         .iter()
         .enumerate()
         .map(|(i, s)| {
-            let between = !s.hit
-                && s.text == " "
-                && i > 0
-                && out[i - 1].hit
-                && out.get(i + 1).is_some_and(|n| n.hit);
-            if between { seg(" ", true) } else { s.clone() }
+            let between = !s.hit && s.text == " " && i > 0 && out[i - 1].hit && out.get(i + 1).is_some_and(|n| n.hit);
+            if between {
+                seg(" ", true)
+            } else {
+                s.clone()
+            }
         })
         .collect();
     let mut merged: Vec<Segment> = Vec::new();
@@ -381,7 +381,8 @@ mod tests {
 
     #[test]
     fn words_starting_with_a_token_are_marked() {
-        let segs = highlight_words("Build the dashboard, then dash off", &query_tokens("DASH"), Some(MatchMode::Prefix));
+        let segs =
+            highlight_words("Build the dashboard, then dash off", &query_tokens("DASH"), Some(MatchMode::Prefix));
         assert_eq!(hits(&segs), ["dashboard", "dash"]);
         assert_eq!(segs.iter().map(|s| s.text.as_str()).collect::<String>(), "Build the dashboard, then dash off");
         assert_eq!(highlight_words("plain text", &[], Some(MatchMode::Prefix)), vec![seg("plain text", false)]);
@@ -392,8 +393,14 @@ mod tests {
         let tokens = query_tokens("What gets sched");
         let text = "So what now? **What gets scheduled:** only a key. It gets what it needs.";
         assert_eq!(match_mode(text, &tokens), Some(MatchMode::Phrase));
-        assert_eq!(match_mode("what is scheduled, it gets done", &query_tokens("what gets scheduled")), Some(MatchMode::Words));
-        assert_eq!(match_mode("what getSpecification scheduled", &query_tokens("what gets scheduled")), Some(MatchMode::Prefix));
+        assert_eq!(
+            match_mode("what is scheduled, it gets done", &query_tokens("what gets scheduled")),
+            Some(MatchMode::Words)
+        );
+        assert_eq!(
+            match_mode("what getSpecification scheduled", &query_tokens("what gets scheduled")),
+            Some(MatchMode::Prefix)
+        );
         assert_eq!(match_mode("nothing here", &tokens), None);
         let segs = highlight_words(text, &tokens, Some(MatchMode::Phrase));
         assert_eq!(hits(&segs), ["What gets scheduled"]);

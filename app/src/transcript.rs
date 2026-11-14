@@ -43,7 +43,14 @@ pub fn messages(entries: &[TimelineEntryDto], now: DateTime<Local>) -> Vec<Messa
             if let Some(d) = &day {
                 last_day = d.clone();
             }
-            Message { user: e.role == "user", ts: e.timestamp.clone(), long: is_long(&text), chars: text.chars().count(), text, day: show }
+            Message {
+                user: e.role == "user",
+                ts: e.timestamp.clone(),
+                long: is_long(&text),
+                chars: text.chars().count(),
+                text,
+                day: show,
+            }
         })
         .collect()
 }
@@ -83,7 +90,8 @@ pub fn marks(messages: &[Message], query: &str) -> Marks {
     }
     let all: String = messages.iter().map(|m| m.text.as_str()).collect::<Vec<_>>().join("\n");
     let mode = match_mode(&all, &tokens);
-    let hit_at: Vec<bool> = messages.iter().map(|m| highlight_words(&m.text, &tokens, mode).iter().any(|s| s.hit)).collect();
+    let hit_at: Vec<bool> =
+        messages.iter().map(|m| highlight_words(&m.text, &tokens, mode).iter().any(|s| s.hit)).collect();
     Marks {
         key: tokens.join(" "),
         matches: hit_at.iter().filter(|h| **h).count(),
@@ -126,7 +134,10 @@ mod tests {
 
     #[test]
     fn huge_messages_are_cut_on_a_char_boundary() {
-        let out = messages(&[entry("assistant", local(2026, 11, 3, 9, 0), &"é".repeat(MESSAGE_MAX_CHARS + 5))], local(2026, 11, 3, 12, 0));
+        let out = messages(
+            &[entry("assistant", local(2026, 11, 3, 9, 0), &"é".repeat(MESSAGE_MAX_CHARS + 5))],
+            local(2026, 11, 3, 12, 0),
+        );
         assert!(out[0].text.ends_with("(cut: 5 more characters)"));
     }
 
@@ -162,7 +173,12 @@ mod tests {
     fn the_pinned_prompt_is_the_latest_user_message_above_the_top() {
         let now = local(2026, 11, 3, 12, 0);
         let m = messages(
-            &[entry("user", now, "a"), entry("assistant", now, "b"), entry("user", now, "c"), entry("assistant", now, "d")],
+            &[
+                entry("user", now, "a"),
+                entry("assistant", now, "b"),
+                entry("user", now, "c"),
+                entry("assistant", now, "d"),
+            ],
             now,
         );
         assert_eq!(pinned_prompt(&m, 0), None);

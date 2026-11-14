@@ -66,13 +66,31 @@ impl<T: StatefulInteractiveElement> TooltipExt for T {}
 pub fn spinner(name: &'static str, size: f32, color: Hsla, spinning: bool) -> AnyElement {
     let el = icon(name, size, color);
     if spinning {
-        el.with_animation(
-            "spin",
-            Animation::new(std::time::Duration::from_millis(1000)).repeat(),
-            |el, delta| el.with_transformation(Transformation::rotate(percentage(delta))),
-        )
+        el.with_animation("spin", Animation::new(std::time::Duration::from_millis(1000)).repeat(), |el, delta| {
+            el.with_transformation(Transformation::rotate(percentage(delta)))
+        })
         .into_any_element()
     } else {
         el.into_any_element()
+    }
+}
+
+/// Names an element so a UI test can find it (`debug_bounds`); does nothing in the shipped app.
+pub trait TestId: Sized {
+    fn test_id(self, id: &str) -> Self;
+}
+
+#[cfg(test)]
+impl<T: InteractiveElement> TestId for T {
+    fn test_id(self, id: &str) -> Self {
+        let id = id.to_string();
+        self.debug_selector(move || id)
+    }
+}
+
+#[cfg(not(test))]
+impl<T> TestId for T {
+    fn test_id(self, _id: &str) -> Self {
+        self
     }
 }

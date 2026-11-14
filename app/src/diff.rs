@@ -6,10 +6,17 @@ use logbook_core::dto::FileEditDto;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DiffItem {
     /// The card's top: "Edit 2 of 3" and its time.
-    Head { label: String, ts: Option<String> },
+    Head {
+        label: String,
+        ts: Option<String>,
+    },
     /// The ⋯ between hunks.
     Gap,
-    Line { no: u32, op: char, text: String },
+    Line {
+        no: u32,
+        op: char,
+        text: String,
+    },
     Note(String),
     /// The card's bottom edge.
     End,
@@ -79,13 +86,26 @@ mod tests {
 
     #[test]
     fn lines_are_numbered_in_the_file_they_belong_to() {
-        let h = Hunk { old_start: 7, new_start: 7, lines: vec![" keep".into(), "-gone".into(), "+new".into(), "+more".into(), " tail".into()] };
+        let h = Hunk {
+            old_start: 7,
+            new_start: 7,
+            lines: vec![" keep".into(), "-gone".into(), "+new".into(), "+more".into(), " tail".into()],
+        };
         let (items, empty) = flatten_edits(&[edit(false, vec![h], false)]);
         assert!(!empty);
-        let lines: Vec<_> = items.iter().filter_map(|i| match i { DiffItem::Line { no, op, text } => Some((*no, *op, text.as_str())), _ => None }).collect();
+        let lines: Vec<_> = items
+            .iter()
+            .filter_map(|i| match i {
+                DiffItem::Line { no, op, text } => Some((*no, *op, text.as_str())),
+                _ => None,
+            })
+            .collect();
         // The removed line is line 8 of the old file; the added ones are lines 8 and 9 of the new.
         assert_eq!(lines, [(7, ' ', "keep"), (8, '-', "gone"), (8, '+', "new"), (9, '+', "more"), (10, ' ', "tail")]);
-        assert_eq!(items.first(), Some(&DiffItem::Head { label: "Edit".into(), ts: Some("2026-11-03T10:00:00Z".into()) }));
+        assert_eq!(
+            items.first(),
+            Some(&DiffItem::Head { label: "Edit".into(), ts: Some("2026-11-03T10:00:00Z".into()) })
+        );
         assert_eq!(items.last(), Some(&DiffItem::End));
     }
 
@@ -93,7 +113,13 @@ mod tests {
     fn labels_gaps_and_notes() {
         let h = |n| Hunk { old_start: n, new_start: n, lines: vec!["+x".into()] };
         let (items, _) = flatten_edits(&[edit(true, vec![], false), edit(false, vec![h(1), h(40)], true)]);
-        let heads: Vec<_> = items.iter().filter_map(|i| match i { DiffItem::Head { label, .. } => Some(label.as_str()), _ => None }).collect();
+        let heads: Vec<_> = items
+            .iter()
+            .filter_map(|i| match i {
+                DiffItem::Head { label, .. } => Some(label.as_str()),
+                _ => None,
+            })
+            .collect();
         assert_eq!(heads, ["Created", "Edit 2 of 2"]);
         assert!(items.contains(&DiffItem::Note("An empty file.".into())));
         assert!(items.contains(&DiffItem::Gap));

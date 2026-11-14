@@ -81,7 +81,9 @@ pub struct Settings {
 }
 
 fn settings_path() -> PathBuf {
-    let base = std::env::var_os("LOGBOOK_CACHE_DIR").map(PathBuf::from).or_else(|| dirs::data_local_dir().map(|d| d.join("Logbook")));
+    let base = std::env::var_os("LOGBOOK_CACHE_DIR")
+        .map(PathBuf::from)
+        .or_else(|| dirs::data_local_dir().map(|d| d.join("Logbook")));
     base.unwrap_or_else(|| PathBuf::from(".")).join("gpui-settings.json")
 }
 
@@ -103,7 +105,11 @@ pub const ZOOM_MIN: f32 = 0.5;
 pub const ZOOM_MAX: f32 = 2.0;
 
 pub fn clamp_zoom(z: f32) -> f32 {
-    if z.is_finite() { z.clamp(ZOOM_MIN, ZOOM_MAX) } else { 1.0 }
+    if z.is_finite() {
+        z.clamp(ZOOM_MIN, ZOOM_MAX)
+    } else {
+        1.0
+    }
 }
 
 /// Exponential step: one mouse-wheel notch (|delta| = 100) is about 10%.
@@ -116,7 +122,9 @@ pub fn next_zoom(current: f32, delta_y: f32) -> f32 {
 pub fn claim_single_instance() -> bool {
     use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
     use windows_sys::Win32::System::Threading::CreateMutexW;
-    use windows_sys::Win32::UI::WindowsAndMessaging::{FindWindowW, IsIconic, SetForegroundWindow, ShowWindow, SW_RESTORE};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        FindWindowW, IsIconic, SetForegroundWindow, ShowWindow, SW_RESTORE,
+    };
     let wide = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
     let name = wide("Local\\dev.etienne.logbook");
     // SAFETY: plain Win32 calls with NUL-terminated strings that outlive them. The mutex handle is kept
@@ -175,8 +183,7 @@ pub fn run_installer(bytes: &[u8], version: &str) -> Result<(), String> {
 
 /// Asks GitHub for the latest release's `latest.json`.
 pub fn fetch_latest() -> Result<String, String> {
-    let mut resp = ureq::get(logbook_app::update::LATEST_JSON)
-        .call()
-        .map_err(|e| format!("Couldn't check for updates: {e}"))?;
+    let mut resp =
+        ureq::get(logbook_app::update::LATEST_JSON).call().map_err(|e| format!("Couldn't check for updates: {e}"))?;
     resp.body_mut().read_to_string().map_err(|e| format!("Couldn't check for updates: {e}"))
 }

@@ -190,14 +190,14 @@ mod tests {
             }),
         ];
         let rows = source_rows(&[dir(Agent::Copilot, true), dir(Agent::ClaudeCode, true)], &sessions);
-        assert_eq!(rows.iter().map(|r| (r.agent, r.count, r.kept)).collect::<Vec<_>>(), [
-            (Agent::ClaudeCode, 2, 1),
-            (Agent::Copilot, 1, 0),
-        ]);
+        assert_eq!(
+            rows.iter().map(|r| (r.agent, r.count, r.kept)).collect::<Vec<_>>(),
+            [(Agent::ClaudeCode, 2, 1), (Agent::Copilot, 1, 0),]
+        );
         let rows = source_rows(&[dir(Agent::Copilot, false), dir(Agent::ClaudeCode, true)], &[]);
-        assert_eq!(rows.iter().map(|r| (r.agent, r.found)).collect::<Vec<_>>(), [
-            (Agent::ClaudeCode, true),
-            (Agent::Copilot, false),
-        ]);
+        assert_eq!(
+            rows.iter().map(|r| (r.agent, r.found)).collect::<Vec<_>>(),
+            [(Agent::ClaudeCode, true), (Agent::Copilot, false),]
+        );
     }
 }

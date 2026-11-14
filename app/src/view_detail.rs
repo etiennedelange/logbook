@@ -4,15 +4,15 @@ use crate::app::{DItem, Logbook, MdEntry, Tab};
 use crate::theme::Palette;
 use crate::ui::*;
 use crate::view_chrome::*;
-use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::base::{RangeHighlight, TextView, TextViewState, TextViewStyle};
+use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
+use logbook_app::diff::DiffItem;
 use logbook_app::model::agents::agent_info;
 use logbook_app::model::format::{self, clock, date_only, date_time, highlight_words, plural, short_repo};
-use logbook_app::diff::DiffItem;
-use logbook_app::transcript::{self, folded};
 use logbook_app::model::Session;
+use logbook_app::transcript::{self, folded};
 /// The reading column's width.
 const COLUMN: f32 = 760.0;
 
@@ -42,8 +42,18 @@ pub fn md_style(p: &Palette, user: bool) -> TextViewStyle {
         .with_code_background(p.inset)
         .with_border(p.line_soft)
         .with_paragraph_gap(rems(0.75))
-        .with_heading(move |level| StyleRefinement::default().text_color(p.ink).font_weight(SEMIBOLD).text_size(rems(sz(level) * 13.5 / 16.0)))
-        .with_inline_code_style(StyleRefinement::default().font_family(MONO).text_color(p.ink).bg(p.raised).rounded(u(4.)).px(u(5.)).py(px(1.)))
+        .with_heading(move |level| {
+            StyleRefinement::default().text_color(p.ink).font_weight(SEMIBOLD).text_size(rems(sz(level) * 13.5 / 16.0))
+        })
+        .with_inline_code_style(
+            StyleRefinement::default()
+                .font_family(MONO)
+                .text_color(p.ink)
+                .bg(p.raised)
+                .rounded(u(4.))
+                .px(u(5.))
+                .py(px(1.)),
+        )
         .with_code_block(
             StyleRefinement::default()
                 .bg(p.inset)
@@ -57,9 +67,13 @@ pub fn md_style(p: &Palette, user: bool) -> TextViewStyle {
                 .line_height(relative(1.55))
                 .text_color(p.soft),
         )
-        .with_blockquote_style(StyleRefinement::default().border_l_1().border_color(p.line).pl(u(12.)).text_color(p.mute))
+        .with_blockquote_style(
+            StyleRefinement::default().border_l_1().border_color(p.line).pl(u(12.)).text_color(p.mute),
+        )
         .with_table(StyleRefinement::default().bg(gpui_kit::transparent_black()).border_color(p.line_soft))
-        .with_table_cell(StyleRefinement::default().bg(gpui_kit::transparent_black()).border_color(p.line_soft).text_size(u(12.5)))
+        .with_table_cell(
+            StyleRefinement::default().bg(gpui_kit::transparent_black()).border_color(p.line_soft).text_size(u(12.5)),
+        )
         .with_table_row_hover(p.hover)
         .with_table_head(StyleRefinement::default().bg(p.raised).text_color(p.ink).font_weight(SEMIBOLD))
 }
@@ -70,11 +84,18 @@ impl Logbook {
         let wide = window.viewport_size().width / self.zoom.max(0.1) >= px(1400.);
         let end = self.header_end(None, wide, window, cx);
         let Some(detail) = &self.detail else { return self.nothing_selected(end, p, cx).into_any_element() };
-        let Some(session) = self.by_id.get(&detail.id).cloned() else { return self.nothing_selected(end, p, cx).into_any_element() };
+        let Some(session) = self.by_id.get(&detail.id).cloned() else {
+            return self.nothing_selected(end, p, cx).into_any_element();
+        };
 
         let title = session.title.text.clone();
-        let where_ = session.branch.clone().or_else(|| session.repo.as_deref().map(|r| short_repo(r).to_string())).unwrap_or_default();
-        let pill_title = [session.repo.clone(), session.branch.clone()].into_iter().flatten().collect::<Vec<_>>().join(" · ");
+        let where_ = session
+            .branch
+            .clone()
+            .or_else(|| session.repo.as_deref().map(|r| short_repo(r).to_string()))
+            .unwrap_or_default();
+        let pill_title =
+            [session.repo.clone(), session.branch.clone()].into_iter().flatten().collect::<Vec<_>>().join(" · ");
         let end = self.header_end(Some((where_, pill_title)), wide, window, cx);
 
         // The latest of your messages that has scrolled out of view, pinned above the replies to it.
@@ -87,7 +108,8 @@ impl Logbook {
         };
         let pinned_bar = pinned.map(|ix| self.pinned_bar(ix, cx));
 
-        let list_el = list(detail.list.clone(), cx.processor(|this, ix, window, cx| this.detail_item(ix, window, cx))).size_full();
+        let list_el = list(detail.list.clone(), cx.processor(|this, ix, window, cx| this.detail_item(ix, window, cx)))
+            .size_full();
         let scroll_list = detail.list.clone();
 
         div()
@@ -111,7 +133,13 @@ impl Logbook {
     }
 
     /// The header's right end: the branch pill, the update pill, About and the window controls.
-    pub fn header_end(&self, pill: Option<(String, String)>, wide: bool, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+    pub fn header_end(
+        &self,
+        pill: Option<(String, String)>,
+        wide: bool,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let p = self.pal;
         // 40% of the detail pane, as an absolute width: a percentage here would resolve against this
         // shrink-wrapped box, which a long branch name widens, leaving a gap after the window buttons.
@@ -163,6 +191,7 @@ impl Logbook {
         Some(
             div()
                 .id("update-pill")
+                .test_id("update-pill")
                 .flex()
                 .flex_none()
                 .items_center()
@@ -178,9 +207,17 @@ impl Logbook {
                 .text_color(p.accent_text)
                 .cursor_pointer()
                 .hover(move |s| s.bg(alpha(p.accent, 0.2)))
-                .tooltip_text(if updating { "Logbook restarts when the update is installed".to_string() } else { format!("Logbook {version} is available") })
+                .tooltip_text(if updating {
+                    "Logbook restarts when the update is installed".to_string()
+                } else {
+                    format!("Logbook {version} is available")
+                })
                 .on_click(cx.listener(move |this, _, _, cx| {
-                    this.whats_new = Some(crate::app::WhatsNew { version: u_.version.clone(), notes: u_.notes.clone(), mode: crate::app::WhatsNewMode::Update });
+                    this.whats_new = Some(crate::app::WhatsNew {
+                        version: u_.version.clone(),
+                        notes: u_.notes.clone(),
+                        mode: crate::app::WhatsNewMode::Update,
+                    });
                     cx.notify();
                 }))
                 .child(icon("update", 13., p.accent_text))
@@ -239,8 +276,8 @@ impl Logbook {
                 .flex()
                 .items_center()
                 .gap(u(16.))
-                .child(
-                    div().flex().items_center().gap(u(4.)).w(u(110.)).flex_none().children(keys.into_iter().enumerate().map(move |(i, k)| {
+                .child(div().flex().items_center().gap(u(4.)).w(u(110.)).flex_none().children(
+                    keys.into_iter().enumerate().map(move |(i, k)| {
                         div()
                             .flex()
                             .items_center()
@@ -261,8 +298,8 @@ impl Logbook {
                                     .text_color(p.soft)
                                     .child(k.to_string()),
                             )
-                    })),
-                )
+                    }),
+                ))
                 .child(div().text_color(p.mute).child(what.to_string()))
         }))
     }
@@ -274,7 +311,14 @@ impl Logbook {
         let Some(d) = &self.detail else { return div().into_any_element() };
         let Some(item) = d.items.get(ix).cloned() else { return div().into_any_element() };
         let Some(session) = self.by_id.get(&d.id).cloned() else { return div().into_any_element() };
-        let column = |el: AnyElement, max: f32| div().w_full().flex().justify_center().child(div().w_full().max_w(u(max)).px(u(20.)).child(el)).into_any_element();
+        let column = |el: AnyElement, max: f32| {
+            div()
+                .w_full()
+                .flex()
+                .justify_center()
+                .child(div().w_full().max_w(u(max)).px(u(20.)).child(el))
+                .into_any_element()
+        };
         let el = match item {
             DItem::Facts => self.facts(&session, window, cx),
             DItem::Note => self.deleted_note(&session),
@@ -382,8 +426,8 @@ impl Logbook {
             .border_color(p.line)
             .px(u(20.))
             .py(u(16.))
-            .child(
-                div().flex().flex_wrap().gap_x(u(40.)).gap_y(u(12.)).children(top.into_iter().map(|(label, value)| {
+            .child(div().flex().flex_wrap().gap_x(u(40.)).gap_y(u(12.)).children(top.into_iter().map(
+                |(label, value)| {
                     div()
                         .flex()
                         .flex_col()
@@ -391,8 +435,8 @@ impl Logbook {
                         .min_w_0()
                         .child(div().text_size(u(11.)).text_color(p.mute).child(label))
                         .child(div().truncate().text_size(u(12.5)).text_color(p.soft).child(value))
-                })),
-            )
+                },
+            )))
             .child(
                 div()
                     .flex()
@@ -444,12 +488,24 @@ impl Logbook {
         let p = self.pal;
         let info = agent_info(s.agent);
         let when = s.source_deleted_at.as_deref().map(date_only);
-        let lead = format!("{} deleted this session’s file{}.", info.name, when.map(|w| format!(" by {w}")).unwrap_or_default());
-        let mut text = format!("{lead} Logbook kept the messages, so you can still find and read them, but the session can’t be resumed.");
+        let lead = format!(
+            "{} deleted this session’s file{}.",
+            info.name,
+            when.map(|w| format!(" by {w}")).unwrap_or_default()
+        );
+        let mut text = format!(
+            "{lead} Logbook kept the messages, so you can still find and read them, but the session can’t be resumed."
+        );
         if let Some((days, setting)) = info.retention {
-            text.push_str(&format!(" {} keeps sessions for {days} days unless {setting} in its settings says otherwise.", info.name));
+            text.push_str(&format!(
+                " {} keeps sessions for {days} days unless {setting} in its settings says otherwise.",
+                info.name
+            ));
         }
-        let styled = StyledText::new(text).with_highlights(vec![(0..lead.len(), HighlightStyle { color: Some(p.ink), font_weight: Some(MEDIUM), ..Default::default() })]);
+        let styled = StyledText::new(text).with_highlights(vec![(
+            0..lead.len(),
+            HighlightStyle { color: Some(p.ink), font_weight: Some(MEDIUM), ..Default::default() },
+        )]);
         div()
             .mx(u(20.))
             .mt(u(16.))
@@ -475,6 +531,7 @@ impl Logbook {
             let on = tab == key;
             div()
                 .id(id)
+                .test_id(id)
                 .flex()
                 .items_center()
                 .gap(u(6.))
@@ -489,7 +546,9 @@ impl Logbook {
                 .when(!on, |d| d.hover(move |s| s.text_color(p.soft)))
                 .on_click(cx.listener(move |this, _, _, cx| this.set_detail_tab(key, cx)))
                 .child(label)
-                .children(count.map(|c| div().rounded_full().bg(p.btn).px(u(6.)).text_size(u(11.)).text_color(p.soft).child(c.to_string())))
+                .children(count.map(|c| {
+                    div().rounded_full().bg(p.btn).px(u(6.)).text_size(u(11.)).text_color(p.soft).child(c.to_string())
+                }))
         };
         div()
             .flex()
@@ -516,7 +575,11 @@ impl Logbook {
         let open = d.folds.get(&mi).copied().unwrap_or(!long || has_hit);
         // The text is only built when the view is made or the message folds or unfolds, not on every frame.
         let shown = |open: bool| if open { m.text.clone() } else { folded(&m.text) };
-        let entry = d.mds.entry(mi).or_insert_with(|| MdEntry { state: cx.new(|cx| TextViewState::markdown(&shown(open), cx)), open, marked: None });
+        let entry = d.mds.entry(mi).or_insert_with(|| MdEntry {
+            state: cx.new(|cx| TextViewState::markdown(&shown(open), cx)),
+            open,
+            marked: None,
+        });
         if entry.open != open {
             let text = shown(open);
             entry.state.update(cx, |st, cx| st.set_text(&text, cx));
@@ -554,13 +617,12 @@ impl Logbook {
         let day = m.day.clone();
         let chars = m.chars;
 
-        let view = TextView::new(&state)
-            .selectable(true)
-            .style(md_style(&p, user))
-            .on_link_click(move |url, _ev, _window, cx| {
+        let view = TextView::new(&state).selectable(true).style(md_style(&p, user)).on_link_click(
+            move |url, _ev, _window, cx| {
                 let url = url.to_string();
                 weak.update(cx, |this, cx| this.open_link(&url, cx)).ok();
-            });
+            },
+        );
 
         let body = div()
             .min_w_0()
@@ -573,6 +635,7 @@ impl Logbook {
         let fold_button = long.then(|| {
             div()
                 .id(("fold", mi))
+                .test_id(&format!("fold:{mi}"))
                 .rounded(u(6.))
                 .px(u(6.))
                 .py(u(2.))
@@ -584,7 +647,11 @@ impl Logbook {
                 .when(user, |d| d.self_end())
                 .when(!user, |d| d.self_start())
                 .on_click(cx.listener(move |this, _, _, cx| this.toggle_fold(mi, open, cx)))
-                .child(if open { "Show less".to_string() } else { format!("Show full message ({}k characters)", (chars as f32 / 1000.0).round() as usize) })
+                .child(if open {
+                    "Show less".to_string()
+                } else {
+                    format!("Show full message ({}k characters)", (chars as f32 / 1000.0).round() as usize)
+                })
         });
 
         div()
@@ -650,6 +717,7 @@ impl Logbook {
             .child(
                 div()
                     .id("pinned")
+                    .test_id("pinned")
                     .flex()
                     .items_center()
                     .gap(u(8.))
@@ -662,7 +730,11 @@ impl Logbook {
                     .on_click(cx.listener(|this, _, _, cx| this.toggle_pinned(cx)))
                     .child(icon("up", 13., p.mute))
                     .child(div().flex_none().text_size(u(11.)).font_weight(SEMIBOLD).text_color(p.soft).child("You"))
-                    .child(div().flex_1().min_w_0().truncate().text_size(u(12.5)).text_color(p.ink).child(if open { String::new() } else { one_line }))
+                    .child(div().flex_1().min_w_0().truncate().text_size(u(12.5)).text_color(p.ink).child(if open {
+                        String::new()
+                    } else {
+                        one_line
+                    }))
                     .child(div().flex_none().font_family(MONO).text_size(u(11.)).child(clock(m.ts.as_deref())))
                     .child(icon(if open { "chevron-up" } else { "chevron-down" }, 13., p.mute)),
             )
@@ -674,10 +746,18 @@ impl Logbook {
                         .gap(u(8.))
                         .px(u(20.))
                         .pb(u(12.))
-                        .child(div().text_size(u(13.)).line_height(relative(1.55)).text_color(p.ink).line_clamp(4).child(m.text.clone()))
+                        .child(
+                            div()
+                                .text_size(u(13.))
+                                .line_height(relative(1.55))
+                                .text_color(p.ink)
+                                .line_clamp(4)
+                                .child(m.text.clone()),
+                        )
                         .child(
                             div()
                                 .id("pinned-jump")
+                                .test_id("pinned-jump")
                                 .h(u(30.))
                                 .self_end()
                                 .flex()
@@ -708,13 +788,31 @@ impl Logbook {
             .flex()
             .flex_none()
             .items_center()
-            .child(div().w(u(44.)).text_right().font_family(MONO).text_size(u(11.5)).text_color(p.ok).child(if added > 0 { format!("+{added}") } else { String::new() }))
-            .child(div().w(u(44.)).text_right().font_family(MONO).text_size(u(11.5)).text_color(p.fail).child(if removed > 0 { format!("−{removed}") } else { String::new() }))
+            .child(
+                div()
+                    .w(u(44.))
+                    .text_right()
+                    .font_family(MONO)
+                    .text_size(u(11.5))
+                    .text_color(p.ok)
+                    .child(if added > 0 { format!("+{added}") } else { String::new() }),
+            )
+            .child(
+                div()
+                    .w(u(44.))
+                    .text_right()
+                    .font_family(MONO)
+                    .text_size(u(11.5))
+                    .text_color(p.fail)
+                    .child(if removed > 0 { format!("−{removed}") } else { String::new() }),
+            )
     }
 
     fn file_row(&mut self, fi: usize, cx: &mut Context<Self>) -> AnyElement {
         let p = self.pal;
-        let Some(f) = self.detail.as_ref().and_then(|d| d.files.as_ref()).and_then(|f| f.files.get(fi)).cloned() else { return div().into_any_element() };
+        let Some(f) = self.detail.as_ref().and_then(|d| d.files.as_ref()).and_then(|f| f.files.get(fi)).cloned() else {
+            return div().into_any_element();
+        };
         let tokens = format::query_tokens(&if self.hits.is_some() { self.hits_query.clone() } else { String::new() });
         let mode = format::match_mode(&f.path, &tokens);
         let cut = f.path.rfind(['/', '\\']).map_or(0, |i| i + 1);
@@ -727,7 +825,14 @@ impl Logbook {
                     let start = text.len();
                     text.push_str(&s.text);
                     if s.hit {
-                        hl.push((start..text.len(), HighlightStyle { background_color: Some(alpha(p.accent, 0.3)), color: Some(p.ink), ..Default::default() }));
+                        hl.push((
+                            start..text.len(),
+                            HighlightStyle {
+                                background_color: Some(alpha(p.accent, 0.3)),
+                                color: Some(p.ink),
+                                ..Default::default()
+                            },
+                        ));
                     }
                 }
                 div().text_color(p.soft).child(StyledText::new(text).with_highlights(hl)).into_any_element()
@@ -751,6 +856,7 @@ impl Logbook {
             .child(
                 div()
                     .id(("file", fi))
+                    .test_id(&format!("file:{fi}"))
                     .w_full()
                     .max_w(u(800.))
                     .flex()
@@ -787,7 +893,14 @@ impl Logbook {
                     .flex()
                     .flex_col()
                     .gap(u(6.))
-                    .child(div().ml(u(10.)).text_size(u(11.)).font_weight(MEDIUM).text_color(p.mute).child("Commands that may have changed files"))
+                    .child(
+                        div()
+                            .ml(u(10.))
+                            .text_size(u(11.))
+                            .font_weight(MEDIUM)
+                            .text_color(p.mute)
+                            .child("Commands that may have changed files"),
+                    )
                     .child(
                         div()
                             .mx(u(10.))
@@ -800,8 +913,16 @@ impl Logbook {
                             .bg(p.raised)
                             .px(u(12.))
                             .py(u(10.))
-                            .children(f.commands.iter().map(|c| div().font_family(MONO).text_size(u(11.5)).text_color(p.soft).child(c.clone())))
-                            .child(div().mt(u(4.)).text_size(u(11.5)).text_color(p.mute).child("Logbook sees these commands, but not which files they changed.")),
+                            .children(f.commands.iter().map(|c| {
+                                div().font_family(MONO).text_size(u(11.5)).text_color(p.soft).child(c.clone())
+                            }))
+                            .child(
+                                div()
+                                    .mt(u(4.))
+                                    .text_size(u(11.5))
+                                    .text_color(p.mute)
+                                    .child("Logbook sees these commands, but not which files they changed."),
+                            ),
                     ),
             )
             .into_any_element()
@@ -810,7 +931,14 @@ impl Logbook {
     fn edits_head(&self, cx: &mut Context<Self>) -> AnyElement {
         let p = self.pal;
         let Some(d) = &self.detail else { return div().into_any_element() };
-        let Some(f) = d.file.as_ref().and_then(|path| d.files.as_ref().and_then(|f| f.files.iter().find(|x| &x.path == path))).cloned() else { return div().into_any_element() };
+        let Some(f) = d
+            .file
+            .as_ref()
+            .and_then(|path| d.files.as_ref().and_then(|f| f.files.iter().find(|x| &x.path == path)))
+            .cloned()
+        else {
+            return div().into_any_element();
+        };
         div()
             .w_full()
             .flex()
@@ -829,6 +957,7 @@ impl Logbook {
                     .child(
                         div()
                             .id("edits-back")
+                            .test_id("edits-back")
                             .flex()
                             .items_center()
                             .gap(u(4.))
@@ -845,7 +974,15 @@ impl Logbook {
                             .child(icon("chevron-left", 14., p.soft))
                             .child("Files"),
                     )
-                    .child(div().flex_1().min_w_0().font_family(MONO).text_size(u(12.5)).text_color(p.ink).child(f.path.clone()))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .font_family(MONO)
+                            .text_size(u(12.5))
+                            .text_color(p.ink)
+                            .child(f.path.clone()),
+                    )
                     .child(self.counts(f.added, f.removed)),
             )
             .into_any_element()
@@ -868,12 +1005,37 @@ impl Logbook {
                     .px(u(12.))
                     .py(u(8.))
                     .child(div().text_size(u(12.)).font_weight(MEDIUM).text_color(p.ink).child(label))
-                    .children(ts.map(|t| div().font_family(MONO).text_size(u(11.)).text_color(p.mute).child(clock(Some(&t))))),
+                    .children(
+                        ts.map(|t| div().font_family(MONO).text_size(u(11.)).text_color(p.mute).child(clock(Some(&t)))),
+                    ),
             )
             .into_any_element(),
-            DiffItem::Gap => card(div().border_x_1().border_color(p.line).px(u(12.)).font_family(MONO).text_size(u(11.)).line_height(relative(1.7)).text_color(p.mute).child("⋯")).into_any_element(),
-            DiffItem::Note(t) => card(div().border_x_1().border_color(p.line).px(u(12.)).py(u(4.)).text_size(u(12.)).text_color(p.mute).child(t)).into_any_element(),
-            DiffItem::End => card(div().h(u(6.)).rounded_b(u(10.)).border_x_1().border_b_1().border_color(p.line)).pb(u(14.)).into_any_element(),
+            DiffItem::Gap => card(
+                div()
+                    .border_x_1()
+                    .border_color(p.line)
+                    .px(u(12.))
+                    .font_family(MONO)
+                    .text_size(u(11.))
+                    .line_height(relative(1.7))
+                    .text_color(p.mute)
+                    .child("⋯"),
+            )
+            .into_any_element(),
+            DiffItem::Note(t) => card(
+                div()
+                    .border_x_1()
+                    .border_color(p.line)
+                    .px(u(12.))
+                    .py(u(4.))
+                    .text_size(u(12.))
+                    .text_color(p.mute)
+                    .child(t),
+            )
+            .into_any_element(),
+            DiffItem::End => card(div().h(u(6.)).rounded_b(u(10.)).border_x_1().border_b_1().border_color(p.line))
+                .pb(u(14.))
+                .into_any_element(),
             DiffItem::Line { no, op, text } => {
                 let bg = match op {
                     '+' => alpha(p.ok, 0.13),
@@ -896,7 +1058,11 @@ impl Logbook {
                         .font_family(MONO)
                         .text_size(u(11.5))
                         .line_height(relative(1.7))
-                        .child(div().w(u(44.)).flex_none().pr(u(8.)).text_right().text_color(p.mute).child(if no > 0 { no.to_string() } else { String::new() }))
+                        .child(div().w(u(44.)).flex_none().pr(u(8.)).text_right().text_color(p.mute).child(if no > 0 {
+                            no.to_string()
+                        } else {
+                            String::new()
+                        }))
                         .child(div().w(u(18.)).flex_none().text_color(opc).child(match op {
                             '+' => "+",
                             '-' => "−",
@@ -922,12 +1088,16 @@ impl Logbook {
             None => command.clone(),
         };
         let cmd_start = line.len() - command.len();
-        let styled = StyledText::new(line.clone()).with_highlights(vec![(cmd_start..line.len(), HighlightStyle { color: Some(p.soft), ..Default::default() })]);
+        let styled = StyledText::new(line.clone()).with_highlights(vec![(
+            cmd_start..line.len(),
+            HighlightStyle { color: Some(p.soft), ..Default::default() },
+        )]);
         let (id1, id2) = (s.id.clone(), s.id.clone());
         let folder2 = folder.clone();
         let round = move |id: &'static str, name: &'static str| {
             div()
                 .id(id)
+                .test_id(id)
                 .flex()
                 .flex_none()
                 .items_center()
@@ -956,15 +1126,31 @@ impl Logbook {
                     .py(u(7.))
                     .pl(u(16.))
                     .pr(u(7.))
-                    .child(div().flex_1().min_w_0().truncate().font_family(MONO).text_size(u(11.5)).text_color(p.mute).child(styled))
-                    .child(round("copy-resume", "copy").tooltip_text("Copy resume command").on_click(cx.listener(move |this, _, _, cx| this.copy_resume(&id1, cx))))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .font_family(MONO)
+                            .text_size(u(11.5))
+                            .text_color(p.mute)
+                            .child(styled),
+                    )
+                    .child(
+                        round("copy-resume", "copy")
+                            .tooltip_text("Copy resume command")
+                            .on_click(cx.listener(move |this, _, _, cx| this.copy_resume(&id1, cx))),
+                    )
                     .children(folder2.map(|f| {
                         let f2 = f.clone();
-                        round("open-folder", "folder").tooltip_text(format!("Open {f}")).on_click(cx.listener(move |this, _, _, cx| this.open_folder(&f2, cx)))
+                        round("open-folder", "folder")
+                            .tooltip_text(format!("Open {f}"))
+                            .on_click(cx.listener(move |this, _, _, cx| this.open_folder(&f2, cx)))
                     }))
                     .child(
                         div()
                             .id("resume")
+                            .test_id("resume")
                             .flex()
                             .flex_none()
                             .items_center()
@@ -974,7 +1160,9 @@ impl Logbook {
                             .px(u(14.))
                             .text_size(u(12.5))
                             .font_weight(SEMIBOLD)
-                            .when(!deleted, |d| d.bg(p.accent).text_color(p.accent_ink).cursor_pointer().hover(|s| s.opacity(0.92)))
+                            .when(!deleted, |d| {
+                                d.bg(p.accent).text_color(p.accent_ink).cursor_pointer().hover(|s| s.opacity(0.92))
+                            })
                             .when(deleted, |d| d.bg(p.btn).text_color(p.mute))
                             .tooltip_text(if deleted {
                                 format!("{} deleted this session, so it can’t be resumed", info.name)

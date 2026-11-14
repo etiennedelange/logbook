@@ -26,7 +26,11 @@ impl Lch {
         let bl = -0.004_196_086 * l - 0.703_418_6 * m + 1.707_614_7 * s;
         let enc = |c: f32| {
             let c = c.clamp(0.0, 1.0);
-            if c <= 0.003_130_8 { 12.92 * c } else { 1.055 * c.powf(1.0 / 2.4) - 0.055 }
+            if c <= 0.003_130_8 {
+                12.92 * c
+            } else {
+                1.055 * c.powf(1.0 / 2.4) - 0.055
+            }
         };
         Rgba { r: enc(r), g: enc(g), b: enc(bl), a: 1.0 }
     }
@@ -173,7 +177,11 @@ impl Palette {
     }
 
     pub fn of(dark: bool) -> Self {
-        if dark { Self::dark() } else { Self::light() }
+        if dark {
+            Self::dark()
+        } else {
+            Self::light()
+        }
     }
 }
 

@@ -19,14 +19,13 @@ pub const HEADER_H: f32 = 32.0;
 pub fn drag_region(el: Stateful<Div>) -> Stateful<Div> {
     let el = el.window_control_area(WindowControlArea::Drag);
     #[cfg(not(target_os = "windows"))]
-    let el = el
-        .on_mouse_down(MouseButton::Left, |ev, window, _| {
-            if ev.click_count == 2 {
-                window.zoom_window();
-            } else {
-                window.start_window_move();
-            }
-        });
+    let el = el.on_mouse_down(MouseButton::Left, |ev, window, _| {
+        if ev.click_count == 2 {
+            window.zoom_window();
+        } else {
+            window.start_window_move();
+        }
+    });
     el
 }
 
@@ -44,15 +43,9 @@ impl Logbook {
             .pr(u(pr))
             .border_b_1()
             .border_color(p.line)
-            .child(
-                drag_region(div().id(id))
-                    .flex_1()
-                    .min_w_0()
-                    .h_full()
-                    .flex()
-                    .items_center()
-                    .child(div().truncate().text_size(u(14.)).font_weight(SEMIBOLD).line_height(relative(1.2)).child(title)),
-            )
+            .child(drag_region(div().id(id)).flex_1().min_w_0().h_full().flex().items_center().child(
+                div().truncate().text_size(u(14.)).font_weight(SEMIBOLD).line_height(relative(1.2)).child(title),
+            ))
             .child(end)
     }
 
@@ -64,6 +57,7 @@ impl Logbook {
         let button = move |id: &'static str, glyph: &'static str, area: WindowControlArea, close: bool| {
             let el = div()
                 .id(id)
+                .test_id(id)
                 .w(u(CAPTION_W))
                 .h_full()
                 .flex()
@@ -71,7 +65,15 @@ impl Logbook {
                 .items_center()
                 .justify_center()
                 .text_color(p.soft)
-                .hover(move |s| if close { s.bg(rgb(0xc42b1c)).text_color(white()) } else { s.bg(p.btn).text_color(p.ink) })
+                .hover(
+                    move |s| {
+                        if close {
+                            s.bg(rgb(0xc42b1c)).text_color(white())
+                        } else {
+                            s.bg(p.btn).text_color(p.ink)
+                        }
+                    },
+                )
                 .window_control_area(area)
                 .child(svg().path(SharedString::from(format!("icons/{glyph}.svg"))).size(u(10.)).text_color(p.soft));
             // Off Windows nothing handles the hit region, so the buttons act on click.
@@ -96,13 +98,29 @@ impl Logbook {
 }
 
 /// A small square icon button (the About `?`, copy, folder, the sidebar footer's).
-pub fn icon_button(id: impl Into<ElementId>, name: &'static str, size: f32, box_px: f32, p: Palette, hover_bg: Hsla) -> Stateful<Div> {
+pub fn icon_button(
+    id: impl Into<ElementId>,
+    name: &'static str,
+    size: f32,
+    box_px: f32,
+    p: Palette,
+    hover_bg: Hsla,
+) -> Stateful<Div> {
     icon_button_el(id, icon(name, size, p.mute).into_any_element(), box_px, p, hover_bg)
 }
 
-pub fn icon_button_el(id: impl Into<ElementId>, glyph: AnyElement, box_px: f32, p: Palette, hover_bg: Hsla) -> Stateful<Div> {
+pub fn icon_button_el(
+    id: impl Into<ElementId>,
+    glyph: AnyElement,
+    box_px: f32,
+    p: Palette,
+    hover_bg: Hsla,
+) -> Stateful<Div> {
+    let id: ElementId = id.into();
+    let tid = format!("{id}");
     div()
         .id(id)
+        .test_id(&tid)
         .flex()
         .flex_none()
         .items_center()
@@ -117,8 +135,11 @@ pub fn icon_button_el(id: impl Into<ElementId>, glyph: AnyElement, box_px: f32, 
 
 /// The button every dialog and empty state uses: `bg-btn`, soft text.
 pub fn plain_button(id: impl Into<ElementId>, label: &str, p: Palette) -> Stateful<Div> {
+    let id: ElementId = id.into();
+    let tid = format!("{id}");
     div()
         .id(id)
+        .test_id(&tid)
         .flex()
         .items_center()
         .gap(u(6.))
@@ -134,8 +155,11 @@ pub fn plain_button(id: impl Into<ElementId>, label: &str, p: Palette) -> Statef
 }
 
 pub fn accent_button(id: impl Into<ElementId>, label: &str, p: Palette) -> Stateful<Div> {
+    let id: ElementId = id.into();
+    let tid = format!("{id}");
     div()
         .id(id)
+        .test_id(&tid)
         .flex()
         .items_center()
         .gap(u(6.))
@@ -153,7 +177,14 @@ pub fn accent_button(id: impl Into<ElementId>, label: &str, p: Palette) -> State
 
 impl Logbook {
     /// The filter box: Esc or × clears it. `searchable` is the one `/` focuses from anywhere.
-    pub fn search_box(&self, input: &Entity<gpui_kit::component::input::InputState>, id: &'static str, value: &str, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+    pub fn search_box(
+        &self,
+        input: &Entity<gpui_kit::component::input::InputState>,
+        id: &'static str,
+        value: &str,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let p = self.pal;
         let focused = input.read(cx).focus_handle(cx).is_focused(window);
         let input_clone = input.clone();
@@ -175,15 +206,19 @@ impl Logbook {
                     .text_color(p.ink)
                     .cursor_text()
                     // A click anywhere in the box focuses it, not just on the text.
-                    .on_mouse_down(MouseButton::Left, cx.listener(move |_, _, window, cx| {
-                        input_focus.update(cx, |i, cx| i.focus(window, cx));
-                    }))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |_, _, window, cx| {
+                            input_focus.update(cx, |i, cx| i.focus(window, cx));
+                        }),
+                    )
                     .child(Input::new(input).appearance(false).cleanable(false)),
             )
             .when(!value.is_empty(), move |this| {
                 this.child(
                     div()
                         .id(id)
+                        .test_id(id)
                         .absolute()
                         .right(u(3.))
                         .top(u(7.))

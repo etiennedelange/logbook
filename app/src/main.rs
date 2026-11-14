@@ -16,10 +16,13 @@ mod view_list;
 mod view_sidebar;
 mod view_stats;
 
+#[cfg(test)]
+mod tests;
+
 use app::{Logbook, View};
 use gpui_kit::*;
-use logbook_core::service::SessionService;
 use logbook_app::model::select::RANGES;
+use logbook_core::service::SessionService;
 use std::sync::Arc;
 use ui::*;
 
@@ -27,7 +30,8 @@ impl Logbook {
     fn on_key(&mut self, ev: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let key = ev.keystroke.key.as_str();
         let m = ev.keystroke.modifiers;
-        let typing = self.input.read(cx).focus_handle(cx).is_focused(window) || self.repo_input.read(cx).focus_handle(cx).is_focused(window);
+        let typing = self.input.read(cx).focus_handle(cx).is_focused(window)
+            || self.repo_input.read(cx).focus_handle(cx).is_focused(window);
 
         if m.control && !m.alt && !m.platform && key == "0" {
             self.set_zoom(1.0, window, cx);
@@ -61,7 +65,11 @@ impl Logbook {
             match key {
                 "escape" => {
                     let search = self.input.read(cx).focus_handle(cx).is_focused(window);
-                    let (input, has_text) = if search { (self.input.clone(), !self.query.is_empty()) } else { (self.repo_input.clone(), !self.repo_query.is_empty()) };
+                    let (input, has_text) = if search {
+                        (self.input.clone(), !self.query.is_empty())
+                    } else {
+                        (self.repo_input.clone(), !self.repo_query.is_empty())
+                    };
                     if has_text {
                         input.update(cx, |i, cx| i.set_value("", window, cx));
                         if search {
@@ -199,7 +207,11 @@ fn initial_bounds(cx: &App) -> WindowBounds {
     if !cx.displays().iter().any(|d| d.bounds().contains(&center)) {
         return WindowBounds::Windowed(default);
     }
-    if saved.maximized { WindowBounds::Maximized(bounds) } else { WindowBounds::Windowed(bounds) }
+    if saved.maximized {
+        WindowBounds::Maximized(bounds)
+    } else {
+        WindowBounds::Windowed(bounds)
+    }
 }
 
 fn main() -> anyhow::Result<()> {
@@ -215,7 +227,11 @@ fn main() -> anyhow::Result<()> {
         let options = WindowOptions {
             window_bounds: Some(initial_bounds(cx)),
             // No native title bar: the pane headers are the title bar, as in the Tauri window (`decorations: false`).
-            titlebar: Some(TitlebarOptions { title: Some("Logbook".into()), appears_transparent: true, traffic_light_position: None }),
+            titlebar: Some(TitlebarOptions {
+                title: Some("Logbook".into()),
+                appears_transparent: true,
+                traffic_light_position: None,
+            }),
             window_min_size: Some(size(px(900.), px(480.))),
             app_owns_titlebar_drag: true,
             ..Default::default()

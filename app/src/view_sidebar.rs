@@ -29,9 +29,15 @@ impl Logbook {
         let stats = self.view == View::Stats;
         let width = if rail { 56.0 } else { 220.0 };
 
-        let nav_item = move |id: &'static str, icon_name: &'static str, label: &'static str, hotkey: char, count: Option<usize>, on: bool| {
+        let nav_item = move |id: &'static str,
+                             icon_name: &'static str,
+                             label: &'static str,
+                             hotkey: char,
+                             count: Option<usize>,
+                             on: bool| {
             div()
                 .id(id)
+                .test_id(&format!("nav:{label}"))
                 .flex()
                 .items_center()
                 .gap(u(9.))
@@ -49,7 +55,10 @@ impl Logbook {
                 .child(icon(icon_name, 15., if on { p.ink } else { p.mute }))
                 .when(!rail, |d| d.child(div().flex_1().child(label)))
                 .when(!rail, |d| {
-                    d.children(count.map(|c| div().font_family(MONO).text_size(u(11.)).text_color(p.mute).child(c.to_string())))
+                    d.children(
+                        count
+                            .map(|c| div().font_family(MONO).text_size(u(11.)).text_color(p.mute).child(c.to_string())),
+                    )
                 })
         };
 
@@ -61,25 +70,32 @@ impl Logbook {
                     .on_click(cx.listener(move |this, _, _, cx| this.set_range(key, cx))),
             );
         }
-        ranges = ranges.child(
-            nav_item("nav-stats", "stats", "Stats", '5', None, stats).on_click(cx.listener(move |this, _, _, cx| {
+        ranges = ranges.child(nav_item("nav-stats", "stats", "Stats", '5', None, stats).on_click(cx.listener(
+            move |this, _, _, cx| {
                 let v = if this.view == View::Stats { View::Sessions } else { View::Stats };
                 this.set_view(v, cx);
-            })),
-        );
+            },
+        )));
 
         // Agents: only when there is more than one to pick between.
         let agents = if self.agent_counts.is_empty() {
             None
         } else {
-            let mut list = div().flex().flex_col().gap(px(1.)).px(u(8.)).when(rail, |d| d.border_t_1().border_color(p.line).pt(u(8.)));
+            let mut list = div()
+                .flex()
+                .flex_col()
+                .gap(px(1.))
+                .px(u(8.))
+                .when(rail, |d| d.border_t_1().border_color(p.line).pt(u(8.)));
             for (agent, count) in self.agent_counts.clone() {
                 let info = agent_info(agent);
                 let on = self.agent == Some(agent);
-                let hotkey = self.present.iter().position(|a| *a == agent).filter(|i| *i < 9).map(|i| format!("Alt+{}", i + 1));
+                let hotkey =
+                    self.present.iter().position(|a| *a == agent).filter(|i| *i < 9).map(|i| format!("Alt+{}", i + 1));
                 list = list.child(
                     div()
                         .id(("agent", info.cat))
+                        .test_id(&format!("agent:{}", info.name))
                         .flex()
                         .flex_none()
                         .items_center()
@@ -103,7 +119,11 @@ impl Logbook {
                         }))
                         .child(div().size(u(7.)).flex_none().rounded_full().bg(p.cat[info.cat]))
                         .when(!rail, |d| d.child(div().flex_1().min_w_0().truncate().child(info.name)))
-                        .when(!rail, |d| d.child(div().font_family(MONO).text_size(u(11.)).text_color(p.mute).child(count.to_string()))),
+                        .when(!rail, |d| {
+                            d.child(
+                                div().font_family(MONO).text_size(u(11.)).text_color(p.mute).child(count.to_string()),
+                            )
+                        }),
                 );
             }
             if self.present.len() > AGENT_ROWS && !rail {
@@ -131,7 +151,18 @@ impl Logbook {
                     .flex()
                     .flex_none()
                     .flex_col()
-                    .when(!rail, |d| d.child(div().px(u(18.)).pb(u(6.)).pt(u(14.)).text_size(u(12.)).font_weight(MEDIUM).text_color(p.mute).child("Agents")))
+                    .when(!rail, |d| {
+                        d.child(
+                            div()
+                                .px(u(18.))
+                                .pb(u(6.))
+                                .pt(u(14.))
+                                .text_size(u(12.))
+                                .font_weight(MEDIUM)
+                                .text_color(p.mute)
+                                .child("Agents"),
+                        )
+                    })
                     .when(rail, |d| d.pt(u(8.)))
                     .child(list),
             )
@@ -141,13 +172,15 @@ impl Logbook {
         let q = self.repo_query.trim().to_lowercase();
         let shown: Vec<_> = self.repos.iter().filter(|r| r.name.to_lowercase().contains(&q)).cloned().collect();
         let repos = (!rail).then(|| {
-            let mut head = div().flex().flex_none().items_center().px(u(18.)).pb(u(6.)).pt(u(14.)).child(
-                div().flex_1().text_size(u(12.)).font_weight(MEDIUM).text_color(p.mute).child("Repositories"),
-            );
+            let mut head =
+                div().flex().flex_none().items_center().px(u(18.)).pb(u(6.)).pt(u(14.)).child(
+                    div().flex_1().text_size(u(12.)).font_weight(MEDIUM).text_color(p.mute).child("Repositories"),
+                );
             if self.repo.is_some() {
                 head = head.child(
                     div()
                         .id("repo-clear")
+                        .test_id("repo-clear")
                         .rounded(u(6.))
                         .px(u(6.))
                         .text_size(u(12.))
@@ -159,13 +192,24 @@ impl Logbook {
                         .child("Clear"),
                 );
             }
-            let mut rows = div().id("repos").flex().flex_col().gap(px(1.)).px(u(8.)).pb(u(8.)).flex_1().min_h_0().overflow_y_scroll().track_scroll(&self.repos_scroll);
+            let mut rows = div()
+                .id("repos")
+                .flex()
+                .flex_col()
+                .gap(px(1.))
+                .px(u(8.))
+                .pb(u(8.))
+                .flex_1()
+                .min_h_0()
+                .overflow_y_scroll()
+                .track_scroll(&self.repos_scroll);
             for (i, r) in shown.iter().enumerate() {
                 let on = self.repo.as_deref() == Some(r.name.as_str());
                 let name = r.name.clone();
                 rows = rows.child(
                     div()
                         .id(("repo", i))
+                        .test_id(&format!("repo:{}", r.name))
                         .flex()
                         .flex_none()
                         .items_center()
@@ -181,7 +225,8 @@ impl Logbook {
                         .when(!on, |d| d.hover(move |s| s.bg(p.side_hover)))
                         .tooltip_text(r.name.clone())
                         .on_click(cx.listener(move |this, _, _, cx| {
-                            let next = if this.repo.as_deref() == Some(name.as_str()) { None } else { Some(name.clone()) };
+                            let next =
+                                if this.repo.as_deref() == Some(name.as_str()) { None } else { Some(name.clone()) };
                             this.set_repo(next, cx);
                         }))
                         .child(icon("folder", 15., if on { p.ink } else { p.mute }))
@@ -190,10 +235,19 @@ impl Logbook {
                 );
             }
             if !q.is_empty() && shown.is_empty() {
-                rows = rows.child(div().px(u(10.)).py(u(8.)).text_size(u(12.)).text_color(p.mute).child("No repositories match."));
+                rows = rows.child(
+                    div().px(u(10.)).py(u(8.)).text_size(u(12.)).text_color(p.mute).child("No repositories match."),
+                );
             }
             if !self.sessions.is_empty() && self.repos.is_empty() {
-                rows = rows.child(div().px(u(10.)).py(u(8.)).text_size(u(12.)).text_color(p.mute).child("No repositories in this range."));
+                rows = rows.child(
+                    div()
+                        .px(u(10.))
+                        .py(u(8.))
+                        .text_size(u(12.))
+                        .text_color(p.mute)
+                        .child("No repositories in this range."),
+                );
             }
             div()
                 .flex()
@@ -202,9 +256,24 @@ impl Logbook {
                 .min_h_0()
                 .child(head)
                 .when(self.repos.len() > 6, |d| {
-                    d.child(div().flex_none().px(u(8.)).pb(u(4.)).child(self.search_box(&self.repo_input.clone(), "clear-repo-filter", &self.repo_query, _window, cx)))
+                    d.child(div().flex_none().px(u(8.)).pb(u(4.)).child(self.search_box(
+                        &self.repo_input.clone(),
+                        "clear-repo-filter",
+                        &self.repo_query,
+                        _window,
+                        cx,
+                    )))
                 })
-                .child(div().flex().flex_col().flex_1().min_h_0().relative().overflow_hidden().child(rows.vertical_scrollbar(&self.repos_scroll)))
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .flex_1()
+                        .min_h_0()
+                        .relative()
+                        .overflow_hidden()
+                        .child(rows.vertical_scrollbar(&self.repos_scroll)),
+                )
         });
 
         // Footer: Sources, re-index, theme.
@@ -257,9 +326,12 @@ impl Logbook {
                     .child(icon("logbook", 19., p.accent_text))
                     .when(!rail, |d| {
                         d.child(
-                            drag_region(div().id("brand")).flex_1().h_full().flex().items_center().child(
-                                div().text_size(u(15.)).font_weight(SEMIBOLD).child("logbook"),
-                            ),
+                            drag_region(div().id("brand"))
+                                .flex_1()
+                                .h_full()
+                                .flex()
+                                .items_center()
+                                .child(div().text_size(u(15.)).font_weight(SEMIBOLD).child("logbook")),
                         )
                     }),
             )
@@ -268,16 +340,26 @@ impl Logbook {
             .children(repos)
             .when(rail, |d| d.child(div().flex_1()))
             .child(footer)
-            .when(self.sources_open && sources_found.is_some(), |d| d.child(deferred(self.sources_popover(rail, cx)).with_priority(1)))
+            .when(self.sources_open && sources_found.is_some(), |d| {
+                d.child(deferred(self.sources_popover(rail, cx)).with_priority(1))
+            })
     }
 }
 
 impl Logbook {
-    fn sources_trigger(&self, agents: Vec<Agent>, found: usize, open: bool, rail: bool, cx: &mut Context<Self>) -> impl IntoElement {
+    fn sources_trigger(
+        &self,
+        agents: Vec<Agent>,
+        found: usize,
+        open: bool,
+        rail: bool,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let p = self.pal;
         let label = if found > 0 { plural(found, "source", "sources") } else { "No sources".to_string() };
         div()
             .id("sources")
+            .test_id("sources")
             .flex()
             .items_center()
             .gap(u(8.))
@@ -289,10 +371,13 @@ impl Logbook {
             .text_color(if open { p.ink } else { p.mute })
             .bg(if open { p.side_sel } else { gpui_kit::transparent_black() })
             .cursor_pointer()
-            .hover(move |s| s.bg(if open { p.side_sel } else { p.side_hover }).text_color(if open { p.ink } else { p.soft }))
+            .hover(move |s| {
+                s.bg(if open { p.side_sel } else { p.side_hover }).text_color(if open { p.ink } else { p.soft })
+            })
             .tooltip_text("Folders Logbook reads")
             .on_click(cx.listener(|this, _, _, cx| {
-                let just_closed = this.sources_closed_at.is_some_and(|t| t.elapsed() < std::time::Duration::from_millis(250));
+                let just_closed =
+                    this.sources_closed_at.is_some_and(|t| t.elapsed() < std::time::Duration::from_millis(250));
                 this.sources_open = !this.sources_open && !just_closed;
                 cx.notify();
             }))
@@ -305,7 +390,13 @@ impl Logbook {
                     .flex()
                     .items_center()
                     .children(agents.iter().take(4).enumerate().map(|(i, a)| {
-                        div().size(u(9.)).rounded_full().bg(p.cat[agent_info(*a).cat]).border_2().border_color(ring).when(i > 0, |d| d.ml(u(-3.)))
+                        div()
+                            .size(u(9.))
+                            .rounded_full()
+                            .bg(p.cat[agent_info(*a).cat])
+                            .border_2()
+                            .border_color(ring)
+                            .when(i > 0, |d| d.ml(u(-3.)))
                     }))
                     .into_any_element()
             })

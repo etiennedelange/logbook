@@ -47,7 +47,8 @@ impl AssetSource for Assets {
     }
 
     fn list(&self, path: &str) -> Result<Vec<SharedString>> {
-        let mut out: Vec<SharedString> = ICONS.iter().filter(|(p, _)| p.starts_with(path)).map(|(p, _)| (*p).into()).collect();
+        let mut out: Vec<SharedString> =
+            ICONS.iter().filter(|(p, _)| p.starts_with(path)).map(|(p, _)| (*p).into()).collect();
         out.extend(gpui_kit::assets::Assets.list(path)?);
         Ok(out)
     }

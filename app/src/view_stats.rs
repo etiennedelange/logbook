@@ -4,13 +4,13 @@ use crate::app::{Logbook, View};
 use crate::theme::Palette;
 use crate::ui::*;
 use chrono::Datelike;
+use chrono::Timelike;
 use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 use logbook_app::model::agents::agent_info;
 use logbook_app::model::format::{plural, short_repo};
 use logbook_app::model::stats::{facts, greeting, hh, level, thousands, Day, Period, Stats, MAP_WEEKS, PERIODS};
-use chrono::Timelike;
 
 const MONTHS: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEKDAYS: [&str; 7] = ["Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays"];
@@ -58,7 +58,11 @@ impl Logbook {
             "{} · {}{}, {}",
             greeting(self.now),
             plural(stats.sessions, "session", "sessions"),
-            if stats.repo_count > 0 { format!(" across {}", plural(stats.repo_count, "repository", "repositories")) } else { String::new() },
+            if stats.repo_count > 0 {
+                format!(" across {}", plural(stats.repo_count, "repository", "repositories"))
+            } else {
+                String::new()
+            },
             days.label.to_lowercase()
         );
         let found = self.sources.as_ref().map(|s| s.iter().filter(|x| x.found).count()).unwrap_or(0);
@@ -77,6 +81,7 @@ impl Logbook {
                 let key = pi.key;
                 div()
                     .id(pi.label)
+                    .test_id(&format!("period:{}", pi.label))
                     .rounded(u(6.))
                     .px(u(10.))
                     .py(u(4.))
@@ -101,11 +106,21 @@ impl Logbook {
                 .text_size(u(12.))
                 .text_color(p.mute)
                 .child(div().size(u(7.)).rounded_full().bg(p.ok))
-                .child(if self.status.indexing { "Reading sessions…".to_string() } else { format!("Watching {}", plural(found, "source", "sources")) })
+                .child(if self.status.indexing {
+                    "Reading sessions…".to_string()
+                } else {
+                    format!("Watching {}", plural(found, "source", "sources"))
+                })
         });
 
         let body: AnyElement = if self.loaded && self.sessions.is_empty() {
-            div().py(u(40.)).text_center().text_size(u(13.)).text_color(p.mute).child("No sessions yet. Once Copilot CLI or Claude Code has run, your stats show up here.").into_any_element()
+            div()
+                .py(u(40.))
+                .text_center()
+                .text_size(u(13.))
+                .text_color(p.mute)
+                .child("No sessions yet. Once Copilot CLI or Claude Code has run, your stats show up here.")
+                .into_any_element()
         } else {
             div()
                 .flex()
@@ -159,7 +174,16 @@ impl Logbook {
                                 .pt(u(16.))
                                 .child(div().text_size(u(13.)).text_color(p.mute).child(sub))
                                 .when(!self.sessions.is_empty(), |d| {
-                                    d.child(div().flex().flex_wrap().items_center().gap_x(u(16.)).gap_y(u(8.)).child(period_group).child(div().ml_auto().children(live)))
+                                    d.child(
+                                        div()
+                                            .flex()
+                                            .flex_wrap()
+                                            .items_center()
+                                            .gap_x(u(16.))
+                                            .gap_y(u(8.))
+                                            .child(period_group)
+                                            .child(div().ml_auto().children(live)),
+                                    )
                                 })
                                 .child(body),
                         )
@@ -179,6 +203,7 @@ impl Logbook {
         let n = list.len();
         div()
             .id("fact-strip")
+            .test_id("fact-strip")
             .flex()
             .flex_none()
             .items_center()
@@ -205,7 +230,11 @@ impl Logbook {
             }))
             .child(icon("sparkle", 15., p.accent_text))
             .child(div().flex_1().min_w_0().child(list[at].clone()))
-            .child(div().flex_none().font_family(MONO).text_size(u(11.)).text_color(p.mute).child(format!("{}/{}", at + 1, n)))
+            .child(div().flex_none().font_family(MONO).text_size(u(11.)).text_color(p.mute).child(format!(
+                "{}/{}",
+                at + 1,
+                n
+            )))
             .into_any_element()
     }
 
@@ -239,21 +268,36 @@ impl Logbook {
             .grid()
             .grid_cols(if two_cols { 2 } else { 4 })
             .gap(u(12.))
-            .child(tile("Sessions", stats.sessions.to_string(), format!("{:.1} a day on average", stats.sessions as f64 / days as f64), false))
+            .child(tile(
+                "Sessions",
+                stats.sessions.to_string(),
+                format!("{:.1} a day on average", stats.sessions as f64 / days as f64),
+                false,
+            ))
             .child(tile(
                 "Messages",
                 thousands(stats.messages),
-                if stats.sessions > 0 { format!("{} per session", (stats.messages as f64 / stats.sessions as f64).round()) } else { "None yet".into() },
+                if stats.sessions > 0 {
+                    format!("{} per session", (stats.messages as f64 / stats.sessions as f64).round())
+                } else {
+                    "None yet".into()
+                },
                 false,
             ))
             .child(tile("Active days", stats.active_days.to_string(), format!("of {days}"), false))
-            .child(tile("Current streak", plural(stats.streak, "day", "days"), format!("Longest in period: {}", plural(stats.longest_streak, "day", "days")), true))
+            .child(tile(
+                "Current streak",
+                plural(stats.streak, "day", "days"),
+                format!("Longest in period: {}", plural(stats.longest_streak, "day", "days")),
+                true,
+            ))
             .into_any_element()
     }
 
     fn activity_map(&self, stats: &Stats, days: i64) -> AnyElement {
         let p = self.pal;
-        let busiest_wd = stats.weekdays.iter().enumerate().max_by_key(|(i, c)| (**c, std::cmp::Reverse(*i))).map_or(0, |(i, _)| i);
+        let busiest_wd =
+            stats.weekdays.iter().enumerate().max_by_key(|(i, c)| (**c, std::cmp::Reverse(*i))).map_or(0, |(i, _)| i);
         let months: Vec<&str> = stats
             .weeks
             .iter()
@@ -284,19 +328,37 @@ impl Logbook {
                 .tooltip_text(format!("{}: {}", day_label(d.date), plural(d.count, "session", "sessions")))
                 .into_any_element()
         };
-        let weekday_col = div().flex().flex_col().gap(u(3.)).mr(u(4.)).pt(u(17.)).font_family(MONO).text_size(u(11.)).text_color(p.mute).children(
-            ["Mon", "", "Wed", "", "Fri", "", "Sun"].map(|d| div().h(u(13.)).line_height(u(13.)).child(d)),
-        );
-        let grid = div().flex().gap(u(3.)).child(weekday_col).children(stats.weeks.iter().enumerate().map(|(wi, w)| {
-            div()
-                .flex()
-                .flex_col()
-                .gap(u(3.))
-                .child(div().h(u(14.)).w(u(13.)).whitespace_nowrap().text_size(u(11.)).text_color(p.mute).child(months[wi]))
-                .children(w.iter().map(|d| square(d, d.ago < days)))
-        }));
+        let weekday_col = div()
+            .flex()
+            .flex_col()
+            .gap(u(3.))
+            .mr(u(4.))
+            .pt(u(17.))
+            .font_family(MONO)
+            .text_size(u(11.))
+            .text_color(p.mute)
+            .children(["Mon", "", "Wed", "", "Fri", "", "Sun"].map(|d| div().h(u(13.)).line_height(u(13.)).child(d)));
+        let grid =
+            div().flex().gap(u(3.)).child(weekday_col).children(stats.weeks.iter().enumerate().map(|(wi, w)| {
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(u(3.))
+                    .child(
+                        div()
+                            .h(u(14.))
+                            .w(u(13.))
+                            .whitespace_nowrap()
+                            .text_size(u(11.))
+                            .text_color(p.mute)
+                            .child(months[wi]),
+                    )
+                    .children(w.iter().map(|d| square(d, d.ago < days)))
+            }));
         let fact = |label: &'static str, value: String| {
-            div().child(div().text_size(u(11.)).text_color(p.mute).child(label)).child(div().text_size(u(14.)).font_weight(SEMIBOLD).child(value))
+            div()
+                .child(div().text_size(u(11.)).text_color(p.mute).child(label))
+                .child(div().text_size(u(14.)).font_weight(SEMIBOLD).child(value))
         };
         let legend = div()
             .mt(u(12.))
@@ -326,9 +388,20 @@ impl Logbook {
                         .gap(u(12.))
                         .min_w(u(160.))
                         .flex_1()
-                        .child(fact("Busiest day", stats.busiest_day.map_or("–".to_string(), |d| format!("{} · {}", day_label(d.date), d.count))))
-                        .child(fact("Favourite day", if stats.sessions > 0 { WEEKDAYS[busiest_wd].to_string() } else { "–".into() }))
-                        .child(fact("Days off", plural((days - stats.active_days as i64).max(0) as usize, "day", "days"))),
+                        .child(fact(
+                            "Busiest day",
+                            stats
+                                .busiest_day
+                                .map_or("–".to_string(), |d| format!("{} · {}", day_label(d.date), d.count)),
+                        ))
+                        .child(fact(
+                            "Favourite day",
+                            if stats.sessions > 0 { WEEKDAYS[busiest_wd].to_string() } else { "–".into() },
+                        ))
+                        .child(fact(
+                            "Days off",
+                            plural((days - stats.active_days as i64).max(0) as usize, "day", "days"),
+                        )),
                 ),
         )
         .into_any_element()
@@ -338,13 +411,17 @@ impl Logbook {
         let p = self.pal;
         let max = stats.hours.iter().copied().max().unwrap_or(0).max(1);
         let h = self.now.hour() as usize;
-        let aside = format!("{}now {}", stats.peak_hour.map(|k| format!("Peak around {} · ", hh(k))).unwrap_or_default(), hh(h));
+        let aside = format!(
+            "{}now {}",
+            stats.peak_hour.map(|k| format!("Peak around {} · ", hh(k))).unwrap_or_default(),
+            hh(h)
+        );
         self.card(
             "When you start sessions",
             Some(aside),
             div()
-                .child(
-                    div().flex().h(u(110.)).items_end().gap(u(3.)).border_b_1().border_color(p.line).children(stats.hours.iter().enumerate().map(|(i, c)| {
+                .child(div().flex().h(u(110.)).items_end().gap(u(3.)).border_b_1().border_color(p.line).children(
+                    stats.hours.iter().enumerate().map(|(i, c)| {
                         div()
                             .id(("hour", i))
                             .flex_1()
@@ -353,20 +430,21 @@ impl Logbook {
                             .bg(if Some(i) == stats.peak_hour { p.accent } else { p.bar })
                             .when(i == h, |d| d.border_1().border_color(alpha(p.ink, 0.45)))
                             .tooltip_text(format!("{}: {}", hh(i), plural(*c, "session", "sessions")))
-                    })),
-                )
-                .child(div().mt(u(5.)).flex().gap(u(3.)).font_family(MONO).text_size(u(11.)).text_color(p.mute).children((0..24).map(|i| {
-                    div()
-                        .flex_1()
-                        .when(i == h, |d| d.text_color(p.accent_text))
-                        .child(if i == h {
-                            "now".to_string()
-                        } else if i % 6 == 0 && (i as i64 - h as i64).abs() > 1 {
-                            format!("{i:02}")
-                        } else {
-                            String::new()
-                        })
-                }))),
+                    }),
+                ))
+                .child(
+                    div().mt(u(5.)).flex().gap(u(3.)).font_family(MONO).text_size(u(11.)).text_color(p.mute).children(
+                        (0..24).map(|i| {
+                            div().flex_1().when(i == h, |d| d.text_color(p.accent_text)).child(if i == h {
+                                "now".to_string()
+                            } else if i % 6 == 0 && (i as i64 - h as i64).abs() > 1 {
+                                format!("{i:02}")
+                            } else {
+                                String::new()
+                            })
+                        }),
+                    ),
+                ),
         )
     }
 
@@ -380,9 +458,11 @@ impl Logbook {
                 .flex()
                 .flex_col()
                 .gap(u(12.))
-                .child(div().flex().h(u(12.)).gap(u(2.)).overflow_hidden().rounded_full().children(stats.agents.iter().filter(|a| a.1 > 0).map(|(a, c)| {
-                    div().h_full().w(relative(*c as f32 / total as f32)).bg(p.cat[agent_info(*a).cat])
-                })))
+                .child(div().flex().h(u(12.)).gap(u(2.)).overflow_hidden().rounded_full().children(
+                    stats.agents.iter().filter(|a| a.1 > 0).map(|(a, c)| {
+                        div().h_full().w(relative(*c as f32 / total as f32)).bg(p.cat[agent_info(*a).cat])
+                    }),
+                ))
                 .child(div().flex().flex_col().gap(px(1.)).children(stats.agents.iter().map(|(a, c)| {
                     let a = *a;
                     let info = agent_info(a);
@@ -403,7 +483,15 @@ impl Logbook {
                         .child(div().size(u(9.)).flex_none().rounded_full().bg(p.cat[info.cat]))
                         .child(div().flex_1().child(info.name))
                         .child(div().font_family(MONO).text_size(u(12.)).text_color(p.soft).child(c.to_string()))
-                        .child(div().w(u(40.)).text_right().font_family(MONO).text_size(u(12.)).text_color(p.mute).child(format!("{}%", (c * 100 + total / 2) / total.max(1))))
+                        .child(
+                            div()
+                                .w(u(40.))
+                                .text_right()
+                                .font_family(MONO)
+                                .text_size(u(12.))
+                                .text_color(p.mute)
+                                .child(format!("{}%", (c * 100 + total / 2) / total.max(1))),
+                        )
                 })))
                 .into_any_element()
         };
@@ -436,13 +524,31 @@ impl Logbook {
                         .hover(move |s| s.bg(p.hover))
                         .tooltip_text(format!("Show sessions in {name}"))
                         .on_click(cx.listener(move |this, _, _, cx| this.set_repo(Some(n.clone()), cx)))
-                        .child(div().w(u(110.)).flex_none().truncate().text_color(p.soft).child(short_repo(name).to_string()))
                         .child(
-                            div().flex_1().h(u(8.)).rounded_full().bg(p.raised).child(
-                                div().h_full().w(relative(*count as f32 / max as f32)).rounded_full().bg(if i == 0 { p.accent } else { p.bar_repo }),
-                            ),
+                            div()
+                                .w(u(110.))
+                                .flex_none()
+                                .truncate()
+                                .text_color(p.soft)
+                                .child(short_repo(name).to_string()),
                         )
-                        .child(div().w(u(36.)).flex_none().text_right().font_family(MONO).text_size(u(12.)).text_color(p.mute).child(count.to_string()))
+                        .child(div().flex_1().h(u(8.)).rounded_full().bg(p.raised).child(
+                            div().h_full().w(relative(*count as f32 / max as f32)).rounded_full().bg(if i == 0 {
+                                p.accent
+                            } else {
+                                p.bar_repo
+                            }),
+                        ))
+                        .child(
+                            div()
+                                .w(u(36.))
+                                .flex_none()
+                                .text_right()
+                                .font_family(MONO)
+                                .text_size(u(12.))
+                                .text_color(p.mute)
+                                .child(count.to_string()),
+                        )
                 }))
                 .into_any_element()
         };
@@ -471,15 +577,25 @@ impl Logbook {
                 icon: "chat",
                 label: "Chattiest session",
                 value: c.title.text.clone(),
-                detail: [Some(plural(c.message_count as usize, "message", "messages")), c.repository.as_deref().map(|r| short_repo(r).to_string()), c.branch.clone()]
-                    .into_iter()
-                    .flatten()
-                    .collect::<Vec<_>>()
-                    .join(" · "),
+                detail: [
+                    Some(plural(c.message_count as usize, "message", "messages")),
+                    c.repository.as_deref().map(|r| short_repo(r).to_string()),
+                    c.branch.clone(),
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+                .join(" · "),
                 open: Some(c.id.clone()),
             });
         }
-        rows.push(Row { icon: "moon", label: "Night owl", value: format!("{late}% after 22:00"), detail: format!("{} started late", plural(stats.late_night, "session", "sessions")), open: None });
+        rows.push(Row {
+            icon: "moon",
+            label: "Night owl",
+            value: format!("{late}% after 22:00"),
+            detail: format!("{} started late", plural(stats.late_night, "session", "sessions")),
+            open: None,
+        });
         let list = div().flex().flex_col().children(rows.into_iter().enumerate().map(|(i, r)| {
             let body = div()
                 .flex()

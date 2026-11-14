@@ -3,12 +3,9 @@
 
 use crate::platform::{self, SavedNotes, SavedWindow, Settings};
 use crate::theme::{Palette, PaletteGlobal};
-use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::base::{RenderedText, TextViewState};
+use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::*;
-use logbook_core::dto::{SearchHitDto, SessionFilesDto};
-use logbook_core::models::Agent;
-use logbook_core::service::SessionService;
 use logbook_app::diff::{flatten_edits, DiffItem};
 use logbook_app::model::agents::{self, SourceInfo};
 use logbook_app::model::format;
@@ -17,6 +14,9 @@ use logbook_app::model::stats::Period;
 use logbook_app::model::{self, Session};
 use logbook_app::transcript::{self, Marks, Message};
 use logbook_app::update::{self, UpdateInfo};
+use logbook_core::dto::{SearchHitDto, SessionFilesDto};
+use logbook_core::models::Agent;
+use logbook_core::service::SessionService;
 use select::Range;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -46,13 +46,13 @@ const UPDATE_RECHECK: Duration = Duration::from_secs(3600);
 const FACT_EVERY: Duration = Duration::from_secs(7);
 const NOTICE_FOR: Duration = Duration::from_millis(3200);
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum View {
     Sessions,
     Stats,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Tab {
     Transcript,
     Files,
@@ -251,7 +251,9 @@ impl Logbook {
     pub fn new(service: Arc<SessionService>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let settings = platform::load_settings();
         // No choice saved yet: follow the system, as the web UI does.
-        let dark = settings.dark.unwrap_or_else(|| !matches!(window.appearance(), WindowAppearance::Light | WindowAppearance::VibrantLight));
+        let dark = settings.dark.unwrap_or_else(|| {
+            !matches!(window.appearance(), WindowAppearance::Light | WindowAppearance::VibrantLight)
+        });
         let zoom = platform::clamp_zoom(settings.zoom.unwrap_or(1.0));
         let pal = Palette::of(dark);
         cx.set_global(PaletteGlobal(pal));
@@ -355,7 +357,8 @@ impl Logbook {
         // After an update, the new version shows the notes it was installed with, once.
         if let Some(saved) = this.settings.whats_new.take() {
             if saved.version == logbook_core::VERSION {
-                this.whats_new = Some(WhatsNew { version: saved.version, notes: saved.notes, mode: WhatsNewMode::Installed });
+                this.whats_new =
+                    Some(WhatsNew { version: saved.version, notes: saved.notes, mode: WhatsNewMode::Installed });
             }
             // Notes for another version mean the update didn't go through; they're dropped either way.
             this.save_settings();
@@ -364,7 +367,9 @@ impl Logbook {
         if std::env::var_os("LOGBOOK_DEV_UPDATE").is_some() {
             let u = UpdateInfo {
                 version: "9.9.9".into(),
-                notes: Some("## 9.9.9\n\n- A faster list\n- `Ctrl+wheel` zoom\n\n| a | b |\n|---|---|\n| 1 | 2 |".into()),
+                notes: Some(
+                    "## 9.9.9\n\n- A faster list\n- `Ctrl+wheel` zoom\n\n| a | b |\n|---|---|\n| 1 | 2 |".into(),
+                ),
                 date: None,
                 installer: None,
             };
@@ -430,7 +435,11 @@ impl Logbook {
         let started = Instant::now();
         cx.spawn(async move |this, cx| {
             let result = cx.background_spawn(async move { service.rebuild() }).await;
-            trace!(started, "re-scan finished: {:?}", result.as_ref().map(|s| (s.total, s.scanned, s.skipped)).map_err(|e| e.to_string()));
+            trace!(
+                started,
+                "re-scan finished: {:?}",
+                result.as_ref().map(|s| (s.total, s.scanned, s.skipped)).map_err(|e| e.to_string())
+            );
             this.update(cx, |this, cx| {
                 this.status.indexing = false;
                 match result {
@@ -525,7 +534,8 @@ impl Logbook {
                         this.update = Some(u.clone());
                         if manual {
                             this.about = false;
-                            this.whats_new = Some(WhatsNew { version: u.version, notes: u.notes, mode: WhatsNewMode::Update });
+                            this.whats_new =
+                                Some(WhatsNew { version: u.version, notes: u.notes, mode: WhatsNewMode::Update });
                         }
                     }
                     Ok(None) => {
@@ -643,7 +653,15 @@ impl Logbook {
     pub fn refilter(&mut self, reset_scroll: bool) {
         let today = self.now;
         let hits = self.hits.as_ref().map(|h| h.as_slice());
-        let rows = select::visible_rows(&self.sessions, &self.by_id, hits, self.range, self.repo.as_deref(), today, self.agent);
+        let rows = select::visible_rows(
+            &self.sessions,
+            &self.by_id,
+            hits,
+            self.range,
+            self.repo.as_deref(),
+            today,
+            self.agent,
+        );
         let mut items = Vec::with_capacity(rows.len() + 16);
         let mut last: Option<String> = None;
         for (i, r) in rows.iter().enumerate() {
@@ -664,7 +682,11 @@ impl Logbook {
         self.range_counts = select::range_counts(&self.sessions, today);
         self.repos = select::repos(&self.sessions, self.range, today, self.agent);
         let shown = agents::shown_agents(&self.present, self.agent, self.all_agents);
-        self.agent_counts = if self.present.len() < 2 { Vec::new() } else { select::agent_counts(&self.sessions, &shown, self.range, self.repo.as_deref(), today) };
+        self.agent_counts = if self.present.len() < 2 {
+            Vec::new()
+        } else {
+            select::agent_counts(&self.sessions, &shown, self.range, self.repo.as_deref(), today)
+        };
     }
 
     /// The Stats view's numbers for the period, kept until the list, the period or the day changes.
@@ -693,7 +715,8 @@ impl Logbook {
             return;
         }
         // Found by a file it changed: open on that file's tab.
-        let by_file = self.hits.as_ref().and_then(|h| h.iter().find(|h| h.id == id)).is_some_and(|h| h.matched == "file");
+        let by_file =
+            self.hits.as_ref().and_then(|h| h.iter().find(|h| h.id == id)).is_some_and(|h| h.matched == "file");
         let tab = if by_file { Tab::Files } else { Tab::Transcript };
         self.sel_id = Some(id.to_string());
         self.detail = Some(Detail::new(id.to_string()));
@@ -706,7 +729,10 @@ impl Logbook {
         cx.spawn(async move |this, cx| {
             let result = cx
                 .background_spawn(async move {
-                    service.transcript(&load_id).map(|t| transcript::messages(&t, now)).ok_or_else(|| format!("session {load_id} not found"))
+                    service
+                        .transcript(&load_id)
+                        .map(|t| transcript::messages(&t, now))
+                        .ok_or_else(|| format!("session {load_id} not found"))
                 })
                 .await;
             trace!(started, "transcript loaded ({} messages)", result.as_ref().map_or(0, |m| m.len()));
@@ -752,7 +778,11 @@ impl Logbook {
         self.select(&id, cx);
         if let Some(item_ix) = self.items.iter().position(|it| matches!(it, Item::Row(i) if *i == next)) {
             // Keep the heading above the first row of a group in view too.
-            let target = if matches!(item_ix.checked_sub(1).and_then(|i| self.items.get(i)), Some(Item::Header(_))) { item_ix - 1 } else { item_ix };
+            let target = if matches!(item_ix.checked_sub(1).and_then(|i| self.items.get(i)), Some(Item::Header(_))) {
+                item_ix - 1
+            } else {
+                item_ix
+            };
             self.list.scroll_to_reveal_item(target);
         }
     }
@@ -803,11 +833,18 @@ impl Logbook {
             let (want_id, want_path) = (id.clone(), path.clone());
             let result = cx
                 .background_spawn(async move {
-                    service.file_edits(&id, &path).map(|e| flatten_edits(&e)).ok_or_else(|| format!("session {id} not found"))
+                    service
+                        .file_edits(&id, &path)
+                        .map(|e| flatten_edits(&e))
+                        .ok_or_else(|| format!("session {id} not found"))
                 })
                 .await;
             this.update(cx, |this, cx| {
-                let Some(d) = this.detail.as_mut().filter(|d| d.id == want_id && d.file.as_deref() == Some(want_path.as_str())) else { return };
+                let Some(d) =
+                    this.detail.as_mut().filter(|d| d.id == want_id && d.file.as_deref() == Some(want_path.as_str()))
+                else {
+                    return;
+                };
                 match result {
                     Ok((items, empty)) => {
                         d.edits = Some(Arc::new(items));
@@ -921,7 +958,9 @@ impl Logbook {
             match (&d.error, &d.messages) {
                 (Some(e), _) => items.push(DItem::Message(format!("Couldn’t read this transcript: {e}"))),
                 (None, None) => items.push(DItem::Skeleton),
-                (None, Some(m)) if m.is_empty() => items.push(DItem::Message("This session has no messages yet.".into())),
+                (None, Some(m)) if m.is_empty() => {
+                    items.push(DItem::Message("This session has no messages yet.".into()))
+                }
                 (None, Some(m)) => {
                     if !d.marks.tokens.is_empty() {
                         items.push(DItem::MarksBanner);
@@ -974,7 +1013,10 @@ impl Logbook {
 
     pub fn resume(&mut self, id: &str, cx: &mut Context<Self>) {
         if self.by_id.get(id).is_some_and(|s| s.source_deleted_at.is_some()) {
-            self.notify("This session’s file was deleted, so it can’t be resumed. Copy still copies the command.", true);
+            self.notify(
+                "This session’s file was deleted, so it can’t be resumed. Copy still copies the command.",
+                true,
+            );
         } else {
             match self.service.resume(id) {
                 Some(resume) => match platform::launch_terminal(&resume) {
@@ -1082,7 +1124,8 @@ impl Logbook {
                 match result {
                     Ok(bytes) => {
                         // Saved first: the new version reads it on its first start.
-                        this.settings.whats_new = Some(SavedNotes { version: version.clone(), notes: update.notes.clone() });
+                        this.settings.whats_new =
+                            Some(SavedNotes { version: version.clone(), notes: update.notes.clone() });
                         this.save_settings();
                         match platform::run_installer(&bytes, &version) {
                             // The installer closes this process; quitting makes sure it can.

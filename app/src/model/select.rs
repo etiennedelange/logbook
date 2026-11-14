@@ -92,9 +92,8 @@ pub fn visible_rows(
     agent: Option<Agent>,
 ) -> Vec<Row> {
     let ok = range_test(range, now);
-    let keep = |s: &Session| {
-        ok(s) && repo.is_none_or(|r| s.repo.as_deref() == Some(r)) && agent.is_none_or(|a| s.agent == a)
-    };
+    let keep =
+        |s: &Session| ok(s) && repo.is_none_or(|r| s.repo.as_deref() == Some(r)) && agent.is_none_or(|a| s.agent == a);
     match hits {
         // A hit for a session that isn't loaded yet is skipped; a refresh re-runs the search once it is.
         Some(hits) => hits
@@ -124,7 +123,8 @@ pub fn repos(sessions: &[Arc<Session>], range: Range, now: DateTime<Local>, agen
             }
         }
     }
-    let mut out: Vec<RepoCount> = counts.into_iter().map(|(name, count)| RepoCount { name: name.into(), count }).collect();
+    let mut out: Vec<RepoCount> =
+        counts.into_iter().map(|(name, count)| RepoCount { name: name.into(), count }).collect();
     out.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase())));
     out
 }
@@ -186,7 +186,13 @@ mod tests {
     fn ids(rows: &[Row]) -> Vec<&str> {
         rows.iter().map(|r| r.session.id.as_str()).collect()
     }
-    fn rows(all: &[Arc<Session>], hits: Option<&[SearchHitDto]>, range: Range, repo: Option<&str>, agent: Option<Agent>) -> Vec<Row> {
+    fn rows(
+        all: &[Arc<Session>],
+        hits: Option<&[SearchHitDto]>,
+        range: Range,
+        repo: Option<&str>,
+        agent: Option<Agent>,
+    ) -> Vec<Row> {
         visible_rows(all, &sessions_by_id(all), hits, range, repo, now(), agent)
     }
     fn hit(s: &Session, snippet: Option<&str>) -> SearchHitDto {
@@ -239,12 +245,21 @@ mod tests {
                 s.updated_at = Some(at(days));
             })
         };
-        let all = [sess("a", "org/a", 0), sess("b", "org/b", 3), sess("c", "org/a", 20), claude("claude:x", "org/a", 1), claude("claude:old", "org/b", 40)];
+        let all = [
+            sess("a", "org/a", 0),
+            sess("b", "org/b", 3),
+            sess("c", "org/a", 20),
+            claude("claude:x", "org/a", 1),
+            claude("claude:old", "org/b", 40),
+        ];
         let both = [Agent::Copilot, Agent::ClaudeCode];
         assert_eq!(ids(&rows(&all, None, Range::All, None, Some(Agent::ClaudeCode))), ["claude:x", "claude:old"]);
         assert_eq!(ids(&rows(&all, None, Range::Week, Some("org/a"), Some(Agent::ClaudeCode))), ["claude:x"]);
         assert_eq!(agent_counts(&all, &both, Range::All, None, now()), [(Agent::Copilot, 3), (Agent::ClaudeCode, 2)]);
-        assert_eq!(agent_counts(&all, &both, Range::Today, Some("org/a"), now()), [(Agent::Copilot, 1), (Agent::ClaudeCode, 0)]);
+        assert_eq!(
+            agent_counts(&all, &both, Range::Today, Some("org/a"), now()),
+            [(Agent::Copilot, 1), (Agent::ClaudeCode, 0)]
+        );
         let r = repos(&all, Range::All, now(), Some(Agent::ClaudeCode));
         assert_eq!(r.iter().map(|r| r.name.as_str()).collect::<Vec<_>>(), ["org/a", "org/b"]);
         let counts = range_counts(&all, now());

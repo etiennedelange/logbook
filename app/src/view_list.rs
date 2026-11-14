@@ -22,7 +22,11 @@ impl Logbook {
         // The counts describe the results on screen, which trail the search box while a search runs.
         let q = if self.hits.is_some() { self.hits_query.trim().to_string() } else { String::new() };
         let n = self.rows.len();
-        let mut sub = vec![if q.is_empty() { plural(n, "session", "sessions") } else { format!("{} for “{q}”", plural(n, "match", "matches")) }];
+        let mut sub = vec![if q.is_empty() {
+            plural(n, "session", "sessions")
+        } else {
+            format!("{} for “{q}”", plural(n, "match", "matches"))
+        }];
         if self.repo.is_some() {
             if let Some(a) = agent_name {
                 sub.push(a.to_string());
@@ -38,6 +42,7 @@ impl Logbook {
         let header_end = self.repo.is_some().then(|| {
             div()
                 .id("all-repos")
+                .test_id("all-repos")
                 .rounded(u(6.))
                 .bg(p.btn)
                 .px(u(9.))
@@ -71,7 +76,12 @@ impl Logbook {
                     self.empty_state("No sessions yet", Some("Sessions from the GitHub Copilot CLI (~/.copilot/session-state) and Claude Code (~/.claude/projects) show up here once they’re indexed.".into()), None, cx)
                 }
             } else {
-                self.empty_state("Nothing in this range", Some("No sessions were active in this period.".into()), Some(("Show all sessions", 1)), cx)
+                self.empty_state(
+                    "Nothing in this range",
+                    Some("No sessions were active in this period.".into()),
+                    Some(("Show all sessions", 1)),
+                    cx,
+                )
             }
         } else {
             let top = self.list.logical_scroll_top().item_ix;
@@ -120,18 +130,16 @@ impl Logbook {
             .bg(p.list)
             .border_r_1()
             .border_color(p.line)
-            .child(self.pane_header("list-title", title, 16., 16., header_end.map(IntoElement::into_any_element).unwrap_or_else(|| div().into_any_element())))
-            .child(
-                div()
-                    .flex_none()
-                    .px(u(12.))
-                    .pb(u(6.))
-                    .pt(u(12.))
-                    .child(search)
-                    .when(!sub.is_empty(), |d| {
-                        d.child(div().mt(u(8.)).px(u(4.)).truncate().text_size(u(12.)).text_color(p.mute).child(sub))
-                    }),
-            )
+            .child(self.pane_header(
+                "list-title",
+                title,
+                16.,
+                16.,
+                header_end.map(IntoElement::into_any_element).unwrap_or_else(|| div().into_any_element()),
+            ))
+            .child(div().flex_none().px(u(12.)).pb(u(6.)).pt(u(12.)).child(search).when(!sub.is_empty(), |d| {
+                d.child(div().mt(u(8.)).px(u(4.)).truncate().text_size(u(12.)).text_color(p.mute).child(sub))
+            }))
             .child(div().flex_1().min_h_0().when(self.searching, |d| d.opacity(0.6)).child(body))
     }
 
@@ -154,7 +162,13 @@ impl Logbook {
     }
 
     /// `action`: label and which action (0: search all sessions, 1: show all sessions).
-    fn empty_state(&self, title: &str, body: Option<String>, action: Option<(&'static str, u8)>, cx: &mut Context<Self>) -> AnyElement {
+    fn empty_state(
+        &self,
+        title: &str,
+        body: Option<String>,
+        action: Option<(&'static str, u8)>,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let p = self.pal;
         div()
             .flex()
@@ -165,12 +179,12 @@ impl Logbook {
             .py(u(48.))
             .text_center()
             .child(div().text_size(u(13.)).font_weight(MEDIUM).text_color(p.soft).child(title.to_string()))
-            .children(body.map(|b| div().max_w(u(300.)).text_size(u(12.)).line_height(relative(1.55)).text_color(p.mute).child(b)))
+            .children(body.map(|b| {
+                div().max_w(u(300.)).text_size(u(12.)).line_height(relative(1.55)).text_color(p.mute).child(b)
+            }))
             .children(action.map(|(label, which)| {
-                plain_button("empty-action", label, p)
-                    .mt(u(8.))
-                    .font_weight(MEDIUM)
-                    .on_click(cx.listener(move |this, _, _, cx| {
+                plain_button("empty-action", label, p).mt(u(8.)).font_weight(MEDIUM).on_click(cx.listener(
+                    move |this, _, _, cx| {
                         this.range = Range::All;
                         if which == 0 {
                             this.repo = None;
@@ -178,7 +192,8 @@ impl Logbook {
                         }
                         this.refilter(true);
                         cx.notify();
-                    }))
+                    },
+                ))
             }))
             .into_any_element()
     }
@@ -256,7 +271,14 @@ impl Logbook {
                         let start = text.len();
                         text.push_str(&seg.text);
                         if seg.hit {
-                            hl.push((start..text.len(), HighlightStyle { background_color: Some(crate::ui::alpha(p.accent, 0.3)), color: Some(p.ink), ..Default::default() }));
+                            hl.push((
+                                start..text.len(),
+                                HighlightStyle {
+                                    background_color: Some(crate::ui::alpha(p.accent, 0.3)),
+                                    color: Some(p.ink),
+                                    ..Default::default()
+                                },
+                            ));
                         }
                     }
                     (text, hl)
@@ -265,6 +287,7 @@ impl Logbook {
 
                 div()
                     .id(("row", ix))
+                    .test_id(&format!("row:{ri}"))
                     .w_full()
                     .flex()
                     .flex_col()
@@ -301,7 +324,9 @@ impl Logbook {
                                     .when(title.source == TitleSource::None, |d| d.italic())
                                     .child(title.text.clone()),
                             )
-                            .child(div().flex_none().font_family(MONO).text_size(u(11.)).text_color(p.mute).child(time)),
+                            .child(
+                                div().flex_none().font_family(MONO).text_size(u(11.)).text_color(p.mute).child(time),
+                            ),
                     )
                     .child(meta)
                     .when_some(snippet, |d, (text, hl)| {
@@ -317,8 +342,12 @@ impl Logbook {
                                     .text_color(p.soft)
                                     .child(icon("file", 12., p.mute))
                                     .child(div().flex_none().child(if f.created { "Created" } else { "Edited" }))
-                                    .child(div().min_w_0().truncate().font_family(MONO).text_size(u(11.5)).child(styled))
-                                    .when(f.edits > 1, |d| d.child(div().flex_none().child(format!("{} times", f.edits)))),
+                                    .child(
+                                        div().min_w_0().truncate().font_family(MONO).text_size(u(11.5)).child(styled),
+                                    )
+                                    .when(f.edits > 1, |d| {
+                                        d.child(div().flex_none().child(format!("{} times", f.edits)))
+                                    }),
                             ),
                             Some(("session", _)) => d.child(
                                 div()
@@ -329,9 +358,18 @@ impl Logbook {
                                     .text_size(u(12.))
                                     .text_color(p.soft)
                                     .child(div().flex_none().child("Session"))
-                                    .child(div().min_w_0().truncate().font_family(MONO).text_size(u(11.5)).child(styled)),
+                                    .child(
+                                        div().min_w_0().truncate().font_family(MONO).text_size(u(11.5)).child(styled),
+                                    ),
                             ),
-                            _ => d.child(div().text_size(u(12.)).line_height(relative(1.5)).text_color(p.soft).line_clamp(2).child(styled)),
+                            _ => d.child(
+                                div()
+                                    .text_size(u(12.))
+                                    .line_height(relative(1.5))
+                                    .text_color(p.soft)
+                                    .line_clamp(2)
+                                    .child(styled),
+                            ),
                         }
                     })
                     .into_any_element()

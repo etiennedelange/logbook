@@ -210,7 +210,11 @@ pub fn thousands(n: i64) -> String {
         }
         out.push(c);
     }
-    if n < 0 { format!("-{out}") } else { out }
+    if n < 0 {
+        format!("-{out}")
+    } else {
+        out
+    }
 }
 
 /// The fun-fact strip: short lines worked out from the stats, only the ones the data supports.
@@ -354,11 +358,18 @@ mod tests {
 
     #[test]
     fn ranks_repositories_and_keeps_every_agent_in_sidebar_order() {
-        let r = |days, repo: &str, agent| s(days, move |d| {
-            d.repository = Some(repo.into());
-            d.agent = agent;
-        });
-        let all = [r(0, "me/a", Agent::Copilot), r(1, "me/b", Agent::Copilot), r(2, "me/b", Agent::Copilot), r(40, "me/c", Agent::ClaudeCode)];
+        let r = |days, repo: &str, agent| {
+            s(days, move |d| {
+                d.repository = Some(repo.into());
+                d.agent = agent;
+            })
+        };
+        let all = [
+            r(0, "me/a", Agent::Copilot),
+            r(1, "me/b", Agent::Copilot),
+            r(2, "me/b", Agent::Copilot),
+            r(40, "me/c", Agent::ClaudeCode),
+        ];
         let st = compute_stats(&all, Period::Week, now());
         assert_eq!(st.repos, [("me/b".to_string(), 2), ("me/a".to_string(), 1)]);
         assert_eq!(st.repo_count, 2);
@@ -389,6 +400,9 @@ mod tests {
         assert_eq!([0, 1, 2, 3, 4, 5, 6, 30].map(level), [0, 1, 2, 2, 3, 3, 4, 4]);
         let g = |h| greeting(local(2026, 1, 1, h, 0));
         assert_eq!((g(2), g(9), g(15), g(20)), ("Up late", "Good morning", "Good afternoon", "Good evening"));
-        assert_eq!((thousands(736), thousands(1234), thousands(1234567)), ("736".into(), "1,234".into(), "1,234,567".into()));
+        assert_eq!(
+            (thousands(736), thousands(1234), thousands(1234567)),
+            ("736".into(), "1,234".into(), "1,234,567".into())
+        );
     }
 }
