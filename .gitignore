@@ -1,7 +1,5 @@
 node_modules/
 /target/
-/ui/dist/
-/src-tauri/gen/
 /tools/screenshots/out/
 /site/dist/
 /site/.astro/
@@ -10,4 +8,3 @@ node_modules/
 
 # Snapshots and screenshots the Playwright MCP writes into the working folder.
 /.playwright-mcp/
-tools/e2e/out/

@@ -41,7 +41,7 @@ jobs:
             echo "::error::$TAG is not on main (compared with main: $status). Tag a commit on main."
             exit 1
           fi
-      # The tag, package.json, tauri.conf.json, both Cargo.tomls and Cargo.lock must all agree,
+      # The tag, package.json, app/tauri.conf.json, both Cargo.tomls and Cargo.lock must all agree,
       # or the installer would be named for one version and the tag say another.
       - name: Tag matches every version field
         env:
@@ -68,15 +68,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Installed copies check updates against the public key in tauri.conf.json, and the build signs the
-      # updater's installer with the private one (docs/RELEASING.md). Without either, no copy could update.
+      # Installed copies check updates against the public key in app/src/update.rs, and the build signs the
+      # installer with the private one (docs/RELEASING.md). Without either, no copy could update.
       - name: Updater key is set
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
-          if grep -q REPLACE_WITH_THE_PUBLIC_KEY src-tauri/tauri.conf.json; then
-            echo "::error::plugins.updater.pubkey in src-tauri/tauri.conf.json is still a placeholder. See docs/RELEASING.md."
+          # The key the app verifies updates with must be the one in the bundler's config: they sign and check
+          # the same installer.
+          key=$(grep -o '"pubkey": *"[^"]*"' app/tauri.conf.json | sed 's/.*: *"\(.*\)"/\1/')
+          if [ -z "$key" ] || ! grep -q "$key" app/src/update.rs; then
+            echo "::error::The public key in app/tauri.conf.json is missing or differs from app/src/update.rs. See docs/RELEASING.md."
             exit 1
           fi
           if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
@@ -95,20 +98,22 @@ jobs:
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: stable
-      # Only the app's workspace packages; the site and screenshot tool aren't part of the installer.
-      - run: pnpm install --frozen-lockfile --filter logbook-ui --filter .
-      # beforeBuildCommand (tauri.conf.json) runs the UI's check + build. The key signs the updater's
-      # copy of the installer (-setup.exe.sig). Built, collected and published the way notes and gitr
+      # Only the Tauri CLI, which makes the installer; the site and screenshot tool aren't part of it.
+      - run: pnpm install --frozen-lockfile --filter .
+      - run: cargo build --release --locked -p logbook
+      # The CLI's bundler makes the NSIS installer from the binary (app/tauri.conf.json), and the key signs
+      # the updater's copy of it (-setup.exe.sig). Built, collected and published the way notes and gitr
       # do it, not with tauri-action: its latest.json sends installed copies to an api.github.com
       # asset URL, which GitHub rate-limits per IP and then answers with 403.
       - name: Build the installer
+        working-directory: app
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          rm -rf target/release/bundle
-          pnpm tauri build --bundles nsis
+          rm -rf ../target/release/bundle
+          ../node_modules/.bin/tauri bundle --bundles nsis
       - name: Collect the installer, its signature and latest.json
         shell: bash
         env:

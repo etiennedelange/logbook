@@ -6,7 +6,7 @@
 
 web
 
-(A Tauri 2 desktop app for Windows. The UI is React in a webview, with a unified title bar drawn by the app.)
+(A native desktop app for Windows, written in Rust and drawn with GPUI: no webview. The title bar is drawn by the app.)
 
 ## Users
 

@@ -10,3 +10,6 @@ pub mod paths;
 pub mod service;
 pub mod source;
 pub mod yaml_reader;
+
+/// The version of Logbook this engine belongs to (bumped with the app by `tools/release`).
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -1,117 +1,98 @@
 /**
- * Screenshots of the real UI against the mock backend (`pnpm --dir ui dev:mock`'s fake sessions),
- * so no private session data ever appears in them.
+ * Screenshots and short clips of the real app, against made-up sessions (demo.mjs), so no private session data
+ * ever appears in them. It starts the app in a virtual display (Xvfb), drives it with the keyboard and mouse
+ * (xdotool) the way a person would, and photographs the window (ImageMagick, ffmpeg for clips).
  *
  *   pnpm screenshots                       every scene and clip, both themes
  *   pnpm screenshots browse search-clip    only those
  *
- * One-time setup:  pnpm --dir tools/screenshots exec playwright install chromium
- * (that also installs the ffmpeg build Playwright ships, which encodes the clips; an ffmpeg on PATH wins.)
+ * Linux only; the dev container has what it needs (Xvfb, xdotool, ImageMagick with WebP, ffmpeg, a software
+ * Vulkan driver), and the release build of the app must exist: `cargo build --release -p logbook`.
  *
- * Everything renders into tools/screenshots/out/ (gitignored). The PUBLISHED files are also
- * copied to docs/screenshots/, which the README and the marketing site show.
+ * Everything renders into tools/screenshots/out/ (gitignored). The PUBLISHED files are also copied to
+ * docs/screenshots/, which the README and the marketing site show.
+ *
+ * The window is photographed at twice the size it has on screen (zoom 2 in a 2360x1520 window), so the shots
+ * are sharp and match what the site expects: the layout is the 1180x760 one, drawn at 2x.
  */
-import { spawn } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
-import { copyFile, mkdir, rm, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
+import { spawn, spawnSync } from 'node:child_process';
+import { copyFileSync, existsSync, mkdirSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
-import { startServer, stopServer } from './server.mjs';
+import { DELETED_FILE_ID, DELETED_SESSION, EDITED_FILE, writeDemoHome } from './demo.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..', '..');
 const out = join(here, 'out');
 const published = join(root, 'docs', 'screenshots');
-const PORT = 1431; // not 1420, so this can run next to `pnpm tauri dev`
 
-// The default window (tauri.conf.json: 1180x760). It has no native title bar: the pane headers are it.
+// The default window: 1180x760 CSS pixels, drawn at 2x.
 const WIDTH = 1180;
 const HEIGHT = 760;
+const SCALE = 2;
+const SCREEN = '2400x1600x24';
+const ORIGIN = { x: 20, y: 20 };
 
 // Regions of the window, in CSS pixels. The list pane starts after the 220px sidebar and ends at 603.
 const LIST_AND_DETAIL = { x: 220, y: 0, width: 960, height: 520 };
 const LIST_ONLY = { x: 220, y: 0, width: 383, height: 240 };
 
 /**
- * Query parameters understood by ui/src/dev/mock.ts. `crop` cuts a region out of the window
- * (no window frame: the site frames those itself); without it the shot is the whole window.
+ * Steps to reach a scene, after the app has loaded (the first Down selects the first row):
+ *   key: an xdotool key name · type: text · click: a point in CSS pixels · wait: seconds
+ * `env` is extra environment for the app (see app.rs: LOGBOOK_DEV_*). `crop` cuts a region out of the window (no
+ * window frame: the site frames those itself); without it the shot is the whole window. `history` adds 26 weeks.
  */
+const SEARCH = [{ key: 'slash' }, { type: 'reminder' }, { wait: 0.6 }];
 const SCENES = {
-  browse: { params: { sel: '0', range: 'all' } },
-  search: { params: { q: 'reminder', sel: '1', range: 'all' } },
-  about: { params: { sel: '0', range: 'all', about: '1' } },
-  // Two agents: Claude Code picked in the sidebar, and a session whose transcript it deleted (seed 8).
-  agents: { params: { agent: 'claude', sel: '8', range: 'all' } },
-  // The Files tab of a Claude Code session (seed 5): what it created and edited, and one file's edits.
-  files: { params: { sel: '5', range: 'all', tab: 'files' } },
-  'file-edits': { params: { sel: '5', range: 'all', tab: 'files', file: 'core\\src\\indexer.rs' } },
+  browse: { steps: [{ key: 'Down' }] },
+  search: { steps: [...SEARCH, { key: 'Down' }] },
+  about: { steps: [{ key: 'Down' }, { type: '?' }] },
+  // Two agents: Claude Code picked in the sidebar (Alt+2), and the session whose file it deleted (the 4th Claude one).
+  agents: { steps: [{ key: 'alt+2' }, ...Array(4).fill({ key: 'Down' })] },
+  // The Files tab of a Claude Code session: what it created and edited, and one file's edits.
+  files: { steps: [{ key: 'alt+2' }, { key: 'Down' }], env: { LOGBOOK_DEV_TAB: 'files' } },
+  'file-edits': { steps: [{ key: 'alt+2' }, { key: 'Down' }], env: { LOGBOOK_DEV_TAB: 'files', LOGBOOK_DEV_FILE: EDITED_FILE } },
   // The sidebar's Sources popover: each agent's folder, its sessions, and the kept Claude session.
-  sources: { params: { sel: '0', range: 'all', sources: '1' } },
+  sources: { steps: [{ key: 'Down' }, { click: [53, 736] }] },
   // An update on offer: the toolbar pill and What's New with the release notes.
-  'whats-new': { params: { sel: '0', range: 'all', whatsnew: '1' } },
+  'whats-new': { steps: [], env: { LOGBOOK_DEV_UPDATE: '1' } },
   // The site's search section: the matching row and the highlighted messages, legible at its size.
-  'search-detail': { params: { q: 'reminder', sel: '1', range: 'all' }, crop: LIST_AND_DETAIL },
+  'search-detail': { steps: [...SEARCH, { key: 'Down' }], crop: LIST_AND_DETAIL },
   // Phone-width stand-ins for the full window, whose text would be ~3px tall there.
-  'search-narrow': { params: { q: 'reminder', range: 'all' }, crop: LIST_ONLY },
-  'browse-narrow': { params: { range: 'all' }, crop: { ...LIST_ONLY, height: 462 } },
-  // The Stats view over 26 weeks of generated history. Still: with reduced motion every number,
-  // bar and square is at rest, not caught mid-animation.
-  stats: { params: { stats: '1', history: '1', range: 'all' }, still: true },
+  'search-narrow': { steps: SEARCH, crop: LIST_ONLY },
+  'browse-narrow': { steps: [], crop: { ...LIST_ONLY, height: 462 } },
+  // The Stats view over 26 weeks of generated history.
+  stats: { steps: [{ type: '5' }, { wait: 1 }], history: true },
 };
 
 /**
- * Short WebM clips, recorded step by step so every frame is a settled render (no timing jitter).
- * Each step changes the UI, then holds that frame for `hold` seconds. Kept under five seconds and
- * played once by the site, so it needs no pause control (WCAG 2.2.2).
+ * Short WebM clips, recorded step by step so every frame is a settled render (no timing jitter). Each step changes
+ * the UI, then holds that frame for `hold` seconds. Kept under five seconds and played once by the site, so it
+ * needs no pause control (WCAG 2.2.2).
  */
 const FPS = 25;
 const CLIPS = {
   'search-clip': {
-    params: { range: 'all' },
     crop: LIST_AND_DETAIL,
     steps: [
       { hold: 0.7 },
-      { press: '/', hold: 0.3 },
+      { key: 'slash', hold: 0.3 },
       ...[...'reminder'].map((ch) => ({ type: ch, hold: 0.1 })),
       { hold: 0.7 },
-      { select: 0, hold: 1.6 }, // open the match: the transcript shows the highlighted messages
+      { key: 'Down', hold: 1.6 }, // open the match: the transcript shows the highlighted messages
     ],
   },
 };
 
 /** The files the README and the site show; the rest are for looking at after a change. */
 const PUBLISHED = [
-  'browse-dark.webp',
-  'browse-light.webp',
-  'agents-dark.webp',
-  'agents-light.webp',
-  'files-dark.webp',
-  'files-light.webp',
-  'file-edits-dark.webp',
-  'file-edits-light.webp',
-  'search-dark.webp',
-  'search-light.webp',
-  'search-detail-dark.webp',
-  'search-detail-light.webp',
-  'search-narrow-dark.webp',
-  'search-narrow-light.webp',
-  'browse-narrow-dark.webp',
-  'browse-narrow-light.webp',
-  'whats-new-dark.webp',
-  'whats-new-light.webp',
-  'stats-dark.webp',
-  'stats-light.webp',
-  'search-clip-dark.webm',
-  'search-clip-light.webm',
-];
+  'browse', 'agents', 'files', 'file-edits', 'search', 'search-detail', 'search-narrow', 'browse-narrow', 'whats-new', 'stats',
+].flatMap((n) => [`${n}-dark.webp`, `${n}-light.webp`]).concat(['search-clip-dark.webm', 'search-clip-light.webm']);
 
 // The hairline drawn around a whole-window shot: the app's own border colour per theme.
-const THEMES = {
-  dark: { hairline: 'rgba(255,255,255,.12)' },
-  light: { hairline: 'rgba(20,16,40,.14)' },
-};
+const THEMES = { dark: { hairline: 'rgba(255,255,255,.12)' }, light: { hairline: 'rgba(20,16,40,.14)' } };
 
 const wanted = process.argv.slice(2);
 const pick = (names) => names.filter((s) => wanted.length === 0 || wanted.includes(s));
@@ -122,143 +103,167 @@ if (scenes.length + clips.length === 0) {
   process.exit(1);
 }
 
-/** ffmpeg on PATH, else the build `playwright install` puts next to its browsers. */
-function findFfmpeg() {
-  const onPath = spawn('ffmpeg', ['-version'], { stdio: 'ignore' });
-  const cache =
-    process.env.PLAYWRIGHT_BROWSERS_PATH ||
-    (process.platform === 'win32'
-      ? join(process.env.LOCALAPPDATA ?? '', 'ms-playwright')
-      : process.platform === 'darwin'
-        ? join(homedir(), 'Library', 'Caches', 'ms-playwright')
-        : join(homedir(), '.cache', 'ms-playwright'));
-  const bundled = existsSync(cache)
-    ? readdirSync(cache)
-        .filter((d) => d.startsWith('ffmpeg-'))
-        .sort()
-        .reverse()
-        .flatMap((d) => ['ffmpeg-linux', 'ffmpeg-mac', 'ffmpeg-win64.exe'].map((f) => join(cache, d, f)))
-        .find((f) => existsSync(f))
-    : undefined;
-  return new Promise((resolve) => {
-    onPath.on('error', () => resolve(bundled));
-    onPath.on('exit', (code) => resolve(code === 0 ? 'ffmpeg' : bundled));
+const app = [join(root, 'target', 'release', 'logbook'), join(root, 'target', 'debug', 'logbook')].find((p) => existsSync(p));
+if (!app) {
+  console.error('No build of the app. Run: cargo build --release -p logbook');
+  process.exit(1);
+}
+for (const tool of ['Xvfb', 'xdotool', 'import', 'convert']) {
+  if (spawnSync('which', [tool]).status !== 0) {
+    console.error(`${tool} is not installed (see .devcontainer/post-create.sh).`);
+    process.exit(1);
+  }
+}
+if (clips.length && spawnSync('which', ['ffmpeg']).status !== 0) {
+  console.error('ffmpeg is not installed, which the clips need (see .devcontainer/post-create.sh).');
+  process.exit(1);
+}
+
+const DISPLAY = `:${90 + (process.pid % 9)}`;
+const css = (n) => n * SCALE;
+
+function run(cmd, args, opts = {}) {
+  const r = spawnSync(cmd, args, { env: { ...process.env, DISPLAY }, maxBuffer: 1 << 28, ...opts });
+  if (r.status !== 0) throw new Error(`${cmd} ${args.join(' ')} failed: ${r.stderr?.toString() ?? ''}`);
+  return r.stdout;
+}
+
+/** The app, started inside the demo home (its folders are relative paths there), until `stop()`. */
+async function startApp(home, theme, env = {}) {
+  writeFileSync(
+    join(home, 'cache', 'gpui-settings.json'),
+    JSON.stringify({ dark: theme === 'dark', zoom: SCALE, window: { x: ORIGIN.x, y: ORIGIN.y, w: WIDTH * SCALE, h: HEIGHT * SCALE, maximized: false } }),
+  );
+  const child = spawn(app, [], {
+    cwd: home,
+    stdio: 'ignore',
+    env: {
+      ...process.env,
+      DISPLAY,
+      COPILOT_HOME: join(home, 'copilot'),
+      CLAUDE_CONFIG_DIR: join(home, 'claude'),
+      LOGBOOK_CACHE_DIR: join(home, 'cache'),
+      LOGBOOK_NO_UPDATE_CHECK: '1',
+      ...env,
+    },
   });
+  run('xdotool', ['search', '--sync', '--name', '^Logbook$']);
+  await sleep(4500); // the list loads, the first scan runs
+  return () => child.kill();
 }
 
-async function openScene(browser, url, params, theme, still = false) {
-  const ctx = await browser.newContext({
-    viewport: { width: WIDTH, height: HEIGHT },
-    deviceScaleFactor: 2,
-    ...(still && { reducedMotion: 'reduce' }),
-  });
-  const page = await ctx.newPage();
-  await page.goto(`${url}?${new URLSearchParams({ ...params, theme })}`);
-  await page.waitForSelector('#root *');
-  await page.evaluate(() => document.fonts.ready);
-  await page.waitForTimeout(600); // list render, search, selection scroll
-  await page.mouse.move(WIDTH - 1, HEIGHT - 1);
-  return { ctx, page };
+const xdo = (...args) => run('xdotool', args);
+
+async function perform(step) {
+  if (step.key) xdo('key', '--clearmodifiers', step.key);
+  if (step.type) xdo('type', '--delay', '60', step.type);
+  if (step.click) {
+    xdo('mousemove', String(ORIGIN.x + css(step.click[0])), String(ORIGIN.y + css(step.click[1])));
+    await sleep(150);
+    xdo('click', '1');
+  }
+  await sleep((step.wait ?? 0.7) * 1000);
 }
 
-function frameHtml(theme, dataUrl) {
-  return `<!doctype html><meta charset="utf-8"><style>
-    html,body{margin:0;background:transparent}
-    .win{position:relative;width:${WIDTH}px;height:${HEIGHT}px;border-radius:10px;overflow:hidden}
-    .win::after{content:"";position:absolute;inset:0;border-radius:10px;box-shadow:inset 0 0 0 1px ${THEMES[theme].hairline}}
-    img{display:block;width:${WIDTH}px;height:${HEIGHT}px}
-  </style><div class="win"><img src="${dataUrl}"></div>`;
+/** The window (or a crop of it) as a PNG. */
+function shot(crop) {
+  const c = crop ?? { x: 0, y: 0, width: WIDTH, height: HEIGHT };
+  return run('import', ['-window', 'root', '-crop', `${css(c.width)}x${css(c.height)}+${ORIGIN.x + css(c.x)}+${ORIGIN.y + css(c.y)}`, '+repage', 'png:-']);
 }
 
-async function toWebp(page, png) {
-  const b64 = await page.evaluate(async (src) => {
-    const img = new Image();
-    img.src = src;
-    await img.decode();
-    const c = document.createElement('canvas');
-    c.width = img.naturalWidth;
-    c.height = img.naturalHeight;
-    c.getContext('2d').drawImage(img, 0, 0);
-    return c.toDataURL('image/webp', 0.95).split(',')[1];
-  }, `data:image/png;base64,${png.toString('base64')}`);
-  return Buffer.from(b64, 'base64');
+/** PNG to WebP; a whole-window shot also gets rounded corners and a hairline, like the window has on screen. */
+function toWebp(png, theme, whole) {
+  const w = css(WIDTH);
+  const h = css(HEIGHT);
+  const r = 10 * SCALE;
+  const args = ['png:-'];
+  if (whole) {
+    args.push(
+      '(', '+clone', '-alpha', 'transparent', '-fill', 'white', '-draw', `roundrectangle 0,0,${w - 1},${h - 1},${r},${r}`, ')',
+      '-alpha', 'set', '-compose', 'DstIn', '-composite',
+      '(', '-size', `${w}x${h}`, 'xc:none', '-fill', 'none', '-stroke', THEMES[theme].hairline, '-strokewidth', '2', '-draw', `roundrectangle 1,1,${w - 2},${h - 2},${r},${r}`, ')',
+      '-compose', 'Over', '-composite',
+    );
+  }
+  args.push('-quality', '95', 'webp:-');
+  return run('convert', args, { input: png });
 }
 
-async function save(name, data) {
-  if (data) await writeFile(join(out, name), data);
+function save(name, data) {
+  if (data) writeFileSync(join(out, name), data);
   const pub = PUBLISHED.includes(name);
-  if (pub) await copyFile(join(out, name), join(published, name));
+  if (pub) copyFileSync(join(out, name), join(published, name));
   console.log(`${pub ? '* ' : '  '}${name}`);
 }
 
-async function recordClip(browser, url, clip, theme, ffmpeg, file) {
-  const { ctx, page } = await openScene(browser, url, clip.params, theme);
-  const enc = spawn(
-    ffmpeg,
-    ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-c:v', 'mjpeg', '-framerate', String(FPS), '-i', 'pipe:0',
-      '-c:v', 'libvpx-vp9', '-crf', '30', '-b:v', '0', '-pix_fmt', 'yuv420p', '-an', file],
-    { stdio: ['pipe', 'ignore', 'inherit'] },
-  );
-  const done = new Promise((resolve, reject) => {
-    enc.on('error', reject);
-    enc.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg exited with ${code}`))));
-  });
-  // If ffmpeg dies mid-clip, stop feeding it and report that, rather than an unhandled rejection
-  // that would skip the cleanup below and leave the dev server running.
-  let failed = false;
-  done.catch(() => (failed = true));
-  for (const step of clip.steps) {
-    if (failed) break;
-    if (step.press) await page.keyboard.press(step.press);
-    if (step.type) await page.keyboard.type(step.type);
-    if (step.select !== undefined) {
-      await page.evaluate((i) => document.querySelectorAll('[role="option"]')[i]?.click(), step.select);
+/** Records a clip: each step's settled frame, held for its time, encoded as VP9. */
+async function recordClip(home, theme, clip, file) {
+  const frames = join(out, `frames-${theme}`);
+  rmSync(frames, { recursive: true, force: true });
+  mkdirSync(frames, { recursive: true });
+  const stop = await startApp(home, theme);
+  const list = [];
+  try {
+    for (const [i, step] of clip.steps.entries()) {
+      await perform({ ...step, wait: 0.15 });
+      const name = `f${String(i).padStart(3, '0')}.png`;
+      writeFileSync(join(frames, name), shot(clip.crop));
+      list.push(`file '${name}'`, `duration ${step.hold}`);
     }
-    await page.waitForTimeout(120); // let the search answer and the list settle
-    const frame = await page.screenshot({ type: 'jpeg', quality: 92, clip: clip.crop });
-    for (let i = 0; i < Math.max(1, Math.round(step.hold * FPS)); i++) {
-      if (!enc.stdin.write(frame)) await new Promise((r) => enc.stdin.once('drain', r));
-    }
+  } finally {
+    stop();
   }
-  enc.stdin.end();
-  await done;
-  await ctx.close();
+  // The concat demuxer drops the last duration unless its file is listed again.
+  list.push(list[list.length - 2]);
+  writeFileSync(join(frames, 'frames.txt'), `${list.join('\n')}\n`);
+  run('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-i', 'frames.txt', '-vf', `fps=${FPS},scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p`, '-c:v', 'libvpx-vp9', '-crf', '30', '-b:v', '0', '-an', file], { cwd: frames });
+  rmSync(frames, { recursive: true, force: true });
 }
 
-await rm(out, { recursive: true, force: true });
-await mkdir(out, { recursive: true });
-await mkdir(published, { recursive: true });
+rmSync(out, { recursive: true, force: true });
+mkdirSync(out, { recursive: true });
+mkdirSync(published, { recursive: true });
 
-const ffmpeg = clips.length ? await findFfmpeg() : undefined;
-if (clips.length && !ffmpeg) throw new Error('No ffmpeg: run `pnpm --dir tools/screenshots exec playwright install chromium`, or put one on PATH.');
-
-const { proc, url } = await startServer(PORT);
-const browser = await chromium.launch();
+const xvfb = spawn('Xvfb', [DISPLAY, '-screen', '0', SCREEN], { stdio: 'ignore' });
+await sleep(1000);
+const homes = { plain: join(out, 'home'), history: join(out, 'home-history') };
 try {
-  const framer = await browser.newPage({ deviceScaleFactor: 2, viewport: { width: WIDTH, height: HEIGHT } });
+  const needed = [];
+  if (scenes.some((s) => !SCENES[s].history) || clips.length) needed.push(['plain', false]);
+  if (scenes.some((s) => SCENES[s].history)) needed.push(['history', true]);
+  for (const [key, history] of needed) {
+    writeDemoHome(homes[key], { history });
+    // Index once, then delete one Claude session's file: the next start keeps its own copy, marked "source deleted".
+    const stop = await startApp(homes[key], 'dark');
+    stop();
+    await sleep(500);
+    const dirs = join(homes[key], 'claude', 'projects');
+    const file = spawnSync('find', [dirs, '-name', `${DELETED_FILE_ID}.jsonl`]).stdout.toString().trim();
+    if (file) unlinkSync(file);
+  }
+
   for (const scene of scenes) {
-    const { params, crop, still } = SCENES[scene];
+    const { steps, crop, env, history } = SCENES[scene];
     for (const theme of Object.keys(THEMES)) {
-      const { ctx, page } = await openScene(browser, url, params, theme, still);
-      const raw = await page.screenshot(crop ? { clip: crop } : {});
-      await ctx.close();
-      let shot = raw;
-      if (!crop) {
-        await framer.setContent(frameHtml(theme, `data:image/png;base64,${raw.toString('base64')}`));
-        await framer.evaluate(() => Promise.all([...document.images].map((i) => i.decode())));
-        shot = await framer.screenshot({ omitBackground: true });
+      const stop = await startApp(history ? homes.history : homes.plain, theme, env);
+      try {
+        for (const step of steps) await perform(step);
+        xdo('mousemove', String(ORIGIN.x + css(WIDTH) - 1), String(ORIGIN.y + css(HEIGHT) - 1));
+        await sleep(400);
+        save(`${scene}-${theme}.webp`, toWebp(shot(crop), theme, !crop));
+      } finally {
+        stop();
       }
-      await save(`${scene}-${theme}.webp`, await toWebp(framer, shot));
     }
   }
   for (const name of clips) {
     for (const theme of Object.keys(THEMES)) {
       const file = `${name}-${theme}.webm`;
-      await recordClip(browser, url, CLIPS[name], theme, ffmpeg, join(out, file));
-      await save(file);
+      await recordClip(homes.plain, theme, CLIPS[name], join(out, file));
+      save(file);
     }
   }
 } finally {
-  await browser.close();
-  stopServer(proc);
+  xvfb.kill();
 }
+console.log(`The kept Claude session is "${DELETED_SESSION}".`);

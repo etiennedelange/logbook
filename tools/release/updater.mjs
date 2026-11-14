@@ -3,8 +3,8 @@
  *
  *   node tools/release/updater.mjs manifest 0.5.0 <setup.exe> <setup.exe.sig>   print latest.json
  *
- * tauri-plugin-updater reads it from releases/latest/download/latest.json (plugins.updater in
- * src-tauri/tauri.conf.json). The installer's `url` is the release's plain download link. tauri-action
+ * The app reads it from releases/latest/download/latest.json (the app checks the same
+ * URL; its public key is in app/src/update.rs and app/tauri.conf.json). The installer's `url` is the release's plain download link. tauri-action
  * wrote an api.github.com asset URL there instead, which installed copies fetch without a token, so
  * past GitHub's 60 unauthenticated API requests an hour per IP address "Update now" failed with 403.
  */

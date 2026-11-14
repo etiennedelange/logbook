@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 #
-# Dev container postCreateCommand. webkit2gtk/gtk3/etc. are Tauri build-time
-# deps (pkg-config, linked by the tao/wry/webkit2gtk crates) — needed for
-# `cargo build`/`cargo check` even though this container never runs or
-# displays the GUI itself.
+# Dev container postCreateCommand. The first group is what GPUI links against (xkbcommon, xcb, freetype);
+# the second lets this container run the app in a virtual display and take screenshots of it
+# (`pnpm screenshots`, app/tools/drive.sh): a software Vulkan driver, Xvfb, xdotool, ImageMagick and ffmpeg.
 #
 set -euo pipefail
 
@@ -11,14 +10,19 @@ cd "$(dirname "$0")/.."
 
 sudo apt-get update
 sudo apt-get install -y \
-	libwebkit2gtk-4.1-dev \
-	libgtk-3-dev \
-	librsvg2-dev \
-	libayatana-appindicator3-dev \
-	libssl-dev \
-	libxdo-dev \
-	patchelf \
-	pkg-config
+	libxkbcommon-dev \
+	libxkbcommon-x11-dev \
+	libxcb1-dev \
+	libfreetype-dev \
+	libfontconfig-dev \
+	pkg-config \
+	mesa-vulkan-drivers \
+	libvulkan1 \
+	xvfb \
+	xdotool \
+	imagemagick \
+	webp \
+	ffmpeg
 
 # pnpm, OpenCode, the GitHub CLI and Wrangler come from the dev-setup
 # feature.

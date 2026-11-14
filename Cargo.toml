@@ -1,7 +1,12 @@
 [workspace]
 resolver = "2"
-members = ["core", "src-tauri"]
+members = ["core", "app"]
 
 # Line tables keep file:line in backtraces but make debug builds link much faster.
 [profile.dev]
 debug = "line-tables-only"
+
+# The installer ships this build: smaller and faster, at the cost of a slower link.
+[profile.release]
+lto = "thin"
+strip = true

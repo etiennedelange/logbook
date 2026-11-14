@@ -168,6 +168,32 @@ Tests: fixture lines for each edit tool in `core/tests/fixtures/claude/`; `pnpm 
 file rows and both searches; mock data with files; new screenshot scenes (Files tab, file diff). An e2e step
 for path and ID search.
 
+## GPUI is the app
+
+**Decided 2026-11-14, built the same day.** The app is Rust all the way down: `app/` draws everything with
+[GPUI](https://www.gpui.rs) (via [gpui-kit](https://crates.io/crates/gpui-kit)) and calls `SessionService` directly, with no webview and
+no IPC. It began as an experiment (`gpui-proto/`, 2026-11-13) with one question, whether it is lighter and faster than the WebView2 build
+with the same screens. On a real Windows history it ran well and used less memory, so the Tauri shell and the React UI were removed.
+
+What the move kept and replaced (details in `docs/RELEASING.md` and the README):
+- **Same screens and look**: the sidebar, list, detail pane, Stats, About, What's New, both themes, zoom, the keyboard, the fonts and
+  colour tokens. `app/README.md` lists what is left out (Stats entrance animations, roving focus rings).
+- **Updates**: the same `latest.json` and minisign key, checked by `app/src/update.rs` and installed with the arguments Tauri's updater used,
+  so 0.6.x installs update in place. The NSIS installer is still made by the Tauri CLI's bundler (`app/tauri.conf.json`), only as a
+  packaging tool: it reads the built exe, and the installer no longer needs WebView2.
+- **Tests**: `ui-check` and the WebView2 e2e became the headless UI tests in `app/src/tests.rs` (real clicks and keys against a fixture
+  history). Screenshots come from the real app in a virtual display (`tools/screenshots/`).
+- **Added**: single instance, the window's size and place remembered, the exe's icon and version info.
+
+Measured:
+- Windows, 915 real sessions, Task Manager "Memory", idle (the list and transcript prototype): GPUI 125 MB; Logbook 249 MB (94.6 MB host +
+  153.4 MB WebView2 Manager). The full app was reported lighter too.
+- Linux, release build, 10,000 synthetic sessions (154 MB of transcripts): cold index 447 ms; warm start to a full list 22 ms; idle re-scan 51 ms;
+  a search keystroke that matches nearly everything 20-35 ms end to end; a transcript loads in about 1 ms; idle CPU is zero.
+
+Still to check on a real install: updating a 0.6.x copy to the first GPUI release (CI builds an unsigned installer on every run, which can be
+installed over a released Logbook to try the in-place upgrade before releasing).
+
 ## Later, on request
 
 - **Gemini CLI / Antigravity CLI.** Individual Gemini CLI users moved to Antigravity CLI (`agy`) on

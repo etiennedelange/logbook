@@ -22,7 +22,7 @@ pnpm release 0.3.0    # any other version (the first release needs one: pnpm rel
 not tagged yet and not older than the newest tag, and entries under the CHANGELOG's `[Unreleased]`. The
 question before anything happens shows which version it picked. After you confirm, it:
 
-1. Branches `release/<version>` from `origin/main`, sets all seven version fields (`version.mjs`), dates
+1. Branches `release/<version>` from `origin/main`, sets all six version fields (`version.mjs`), dates
    the `[Unreleased]` entries as `## [<version>] - <date>`, commits "Release <version>" (signed, if your
    git signs commits) and pushes.
 2. Opens the PR "Release <version>" with the `skip-changelog` label and turns on squash auto-merge.
@@ -52,8 +52,8 @@ a year at most; renew it under **Settings → Developer settings → Fine-graine
 
 ### What the tag starts
 
-1. **`release.yml`** checks that the tag is on `main` and agrees with all seven version fields, and that the
-   updater key is set. It builds the NSIS installer on Windows and publishes the GitHub Release with
+1. **`release.yml`** checks that the tag is on `main` and agrees with all six version fields, and that the
+   updater key is set. It builds the app (`cargo build --release -p logbook`), has the Tauri CLI's bundler make the NSIS installer from the binary (`app/tauri.conf.json`), and publishes the GitHub Release with
    `Logbook_<version>_x64-setup.exe`, its updater signature (`.sig`), `SHA256SUMS.txt` and `latest.json` for the in-app
    updater (below). The notes are the CHANGELOG's section for the version, followed by GitHub's list of
    merged PRs.
@@ -69,10 +69,11 @@ release a new patch version instead.
 
 ## In-app updater
 
-`tauri-plugin-updater` reads
-`https://github.com/etiennedelange/logbook/releases/latest/download/latest.json` (`plugins.updater` in
-`src-tauri/tauri.conf.json`). The Release run writes that file and uploads it with each release. Its `notes`
-are the CHANGELOG section alone, which is what Logbook shows as **What's New**.
+The app (`app/src/update.rs`, `platform.rs`, `app.rs`) reads
+`https://github.com/etiennedelange/logbook/releases/latest/download/latest.json`. The Release run writes that
+file and uploads it with each release. Its `notes` are the CHANGELOG section alone, which is what Logbook shows
+as **What's New**. The file and the signature are the format Tauri's updater used, so copies from before the
+app stopped using Tauri (0.6.x) update the same way.
 
 The installer's `url` in it is the release's download link
 (`github.com/.../releases/download/v<version>/Logbook_<version>_x64-setup.exe`), written by
@@ -85,24 +86,27 @@ then answers 403, so **Update now** could fail behind a shared address.
   open for days, and a single check would never see a later release. A failed check is only logged.
   **About → Check for updates** checks right away and says what happened.
 - An update shows as **Update** in the toolbar (**Update to x.y.z** when the window is wide). That opens **What's New** with the release notes.
-  **Update now** downloads the installer and checks its signature against `plugins.updater.pubkey`
-  (`src-tauri/src/update.rs`). It then runs the installer in passive mode (a progress bar, no
-  questions). The installer closes Logbook and starts the new version.
-- Before installing, the UI keeps the notes in `localStorage`. On its first start the new version shows
-  them once as "You're now on Logbook x.y.z" (`ui/src/update.ts`).
+  **Update now** downloads the installer into memory and checks its minisign signature against the public key in
+  `app/src/update.rs` (`PUBKEY`); only then does it write it to disk and run it, passive (a progress bar, no
+  questions) and as an update, with `/P /UPDATE /R`, the arguments Tauri's updater used. The installer closes
+  Logbook and starts the new version.
+- Before installing, the app keeps the notes in its settings file (`gpui-settings.json`, next to the index).
+  On its first start the new version shows them once as "You're now on Logbook x.y.z".
 - `latest.json` holds only the newest release, so an update that skips versions shows the newest notes
   alone. **Release page** in the dialog links to the rest.
 - A pre-release never reaches installed copies, because GitHub's *latest* skips pre-releases. To try the
   updater end to end, release two normal patch versions.
 - 0.1.1 and earlier have no updater. They need the next installer downloaded once by hand, and from then
   on they update themselves.
-- `pnpm mock:web` with `?update` in the URL offers a fake 0.2.0. `?whatsnew` opens its dialog, and
-  `?whatsnew=installed` shows the dialog as it looks after an update.
+- `LOGBOOK_DEV_UPDATE=1 cargo run -p logbook` offers a fake 9.9.9, to look at the pill and What's New.
+- CI builds an unsigned installer on every run (**Actions → CI → Artifacts → `logbook-installer`**), so a
+  change to the release path is seen before a release, and the exe can be tried over an installed Logbook.
 
 ### The updater signing key
 
-`bundle.createUpdaterArtifacts` makes `tauri build` sign the installer with a minisign key, and every
-installed copy checks updates against the public half in `tauri.conf.json`. This is not code signing, so
+`bundle.createUpdaterArtifacts` makes the Tauri CLI's bundler sign the installer with a minisign key, and every
+installed copy checks updates against the public half, which is in `app/src/update.rs` (what the app checks) and
+`app/tauri.conf.json` (what the bundler reads). They must be the same string; the release job fails if not. This is not code signing, so
 SmartScreen still warns on first install. It does stop anyone who could swap a release asset from
 pushing their own installer to every copy.
 
@@ -115,22 +119,23 @@ gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD               # paste the passw
 ```
 
 Put the public key (`~/.tauri/logbook-updater.key.pub`, one line) into `plugins.updater.pubkey` in
-`src-tauri/tauri.conf.json`, replacing `REPLACE_WITH_THE_PUBLIC_KEY`, and merge that before the next release.
-The release job fails early while either is missing.
+`app/tauri.conf.json` and into `PUBKEY` in `app/src/update.rs`, and merge that before the next release.
+The release job fails early while either is missing or they differ.
 
 **Back up the private key and its password** outside this machine, for example in a password manager.
 Without them no installed copy can be updated again, and every user would have to download a new installer
 by hand. Changing the key works the same way, because copies that trust the old key reject updates signed
 with the new one.
 
-A local `pnpm tauri build` needs the key in `TAURI_SIGNING_PRIVATE_KEY`, or
-`--config src-tauri/tauri.no-updater.conf.json` to build without the updater signature.
+To make an installer on your own machine (Windows): `cargo build --release -p logbook`, then, in `app/`,
+`../node_modules/.bin/tauri bundle --bundles nsis` with the key in `TAURI_SIGNING_PRIVATE_KEY`, or
+`--config '{"bundle":{"createUpdaterArtifacts":false}}'` to build without the updater signature.
 
 ## The version
 
-`src-tauri/tauri.conf.json` is the source of truth, because the installer is named from it. The version also
-lives in `package.json`, `ui/package.json`, `src-tauri/Cargo.toml`, `core/Cargo.toml` and `Cargo.lock`
-(two entries). `tools/release/version.mjs` writes all seven; `--check` fails if any disagree. `pnpm release`
+`app/tauri.conf.json` is the source of truth, because the installer is named from it. The version also
+lives in `package.json`, `app/Cargo.toml`, `core/Cargo.toml` and `Cargo.lock`
+(two entries). `tools/release/version.mjs` writes all six; `--check` fails if any disagree. `pnpm release`
 sets them for you; `version.mjs` on its own is for checking, or for a version change outside a release.
 
 ## One-time setup

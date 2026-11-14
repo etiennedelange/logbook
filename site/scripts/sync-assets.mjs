@@ -9,8 +9,8 @@ const dest = join(root, 'site', 'public', 'screenshots');
 await mkdir(dest, { recursive: true });
 await cp(join(root, 'docs', 'screenshots'), dest, { recursive: true });
 
-// The app version, for the download link: src-tauri/tauri.conf.json is the one the installer is named from.
-const { version } = JSON.parse(await readFile(join(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
+// The app version, for the download link: app/tauri.conf.json is the one the installer is named from.
+const { version } = JSON.parse(await readFile(join(root, 'app', 'tauri.conf.json'), 'utf8'));
 await mkdir(join(root, 'site', 'src', 'generated'), { recursive: true });
 await import('node:fs/promises').then((fs) =>
   fs.writeFile(join(root, 'site', 'src', 'generated', 'version.json'), JSON.stringify({ version }) + '\n'),
