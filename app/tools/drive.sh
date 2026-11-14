@@ -14,7 +14,7 @@ HERE=$(cd "$(dirname "$0")/.." && pwd)
 export COPILOT_HOME=$FX/copilot CLAUDE_CONFIG_DIR=$FX/claude LOGBOOK_CACHE_DIR=$FX/cache DISPLAY=:97
 Xvfb :97 -screen 0 1400x850x24 >/dev/null 2>&1 & XV=$!
 sleep 1
-"$HERE/target/${BIN:-debug}/logbook" > "$OUT/app.log" 2>&1 & APP=$!
+"$HERE/../target/${BIN:-debug}/logbook" > "$OUT/app.log" 2>&1 & APP=$!
 sleep 9
 xdotool mousemove 700 400
 for step in "$@"; do
