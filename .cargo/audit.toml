@@ -1,13 +1,19 @@
 # cargo audit waivers. Each one needs a reason, and goes when the reason does.
 #
-# These come in through GPUI's Linux backend (the portal client, ashpd, which uses zbus) and are not in
-# the Windows build, which is the only one Logbook ships. Check with:
+# The first group is "unmaintained" notices (no known vulnerability) for crates GPUI itself depends on, which
+# gpui-kit pins, so they clear when GPUI moves on. The second group comes in through GPUI's Linux backend (the
+# portal client, ashpd, which uses zbus) and is not in the Windows build, which is the only one Logbook ships.
+# Check with:
 #   cargo tree -i <crate> --target x86_64-pc-windows-msvc
-# They clear when zbus moves to maintained crates; re-check on each GPUI upgrade, and drop a waiver as
-# soon as its crate leaves Cargo.lock.
+# Re-check on each GPUI upgrade, and drop a waiver as soon as its crate leaves Cargo.lock.
 
 [advisories]
 ignore = [
+  "RUSTSEC-2024-0384", # instant: unmaintained (GPUI)
+  "RUSTSEC-2024-0436", # paste: unmaintained (GPUI's macros)
+  "RUSTSEC-2025-0134", # rustls-pemfile: unmaintained (GPUI's HTTP client)
+  "RUSTSEC-2026-0206", # rustybuzz: unmaintained (GPUI's SVG/text stack)
+  "RUSTSEC-2026-0192", # ttf-parser: unmaintained (GPUI's SVG/text stack)
   "RUSTSEC-2026-0370", # zvariant: unmaintained (Linux-only, zbus via GPUI's portal client)
   "RUSTSEC-2026-0371", # zbus_names: unmaintained (Linux-only, zbus via GPUI's portal client)
   "RUSTSEC-2026-0372", # zvariant_derive: unmaintained (Linux-only, zbus via GPUI's portal client)
