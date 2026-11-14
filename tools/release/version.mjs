@@ -1,12 +1,12 @@
 /**
- * The app's version lives in seven fields across five files. This keeps them equal.
+ * The app's version lives in six fields across five files. This keeps them equal.
  *
  *   node tools/release/version.mjs 0.2.0         set an exact version
  *   node tools/release/version.mjs patch         or minor, major: bump from the current one
- *   node tools/release/version.mjs --check       fail unless all seven agree
+ *   node tools/release/version.mjs --check       fail unless all six agree
  *   node tools/release/version.mjs --check v0.2.0  ...and agree with this tag
  *
- * src-tauri/tauri.conf.json is the source of truth: the installer is named from it.
+ * app/tauri.conf.json is the source of truth: the installer is named from it (the Tauri CLI's bundler reads it).
  * Dependency-free, so it runs in CI before `pnpm install`. ship.mjs (`pnpm release`) imports it.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -37,10 +37,9 @@ const lockEntry = (name) => ({
 });
 
 const targets = [
-  json('src-tauri/tauri.conf.json'),
+  json('app/tauri.conf.json'),
   json('package.json'),
-  json('ui/package.json'),
-  cargoToml('src-tauri/Cargo.toml'),
+  cargoToml('app/Cargo.toml'),
   cargoToml('core/Cargo.toml'),
   lockEntry('logbook'),
   lockEntry('logbook-core'),
@@ -55,10 +54,10 @@ const fail = (msg) => {
   process.exit(1);
 };
 
-/** The version in src-tauri/tauri.conf.json, the source of truth. */
+/** The version in app/tauri.conf.json, the source of truth. */
 export const readVersion = () => current()[0].version;
 
-/** Writes `next` into all seven fields. */
+/** Writes `next` into all six fields. */
 export function setVersion(next) {
   if (!SEMVER.test(next)) fail(`"${next}" is not a semantic version.`);
   for (const t of targets) {

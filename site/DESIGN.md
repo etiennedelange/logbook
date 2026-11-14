@@ -61,7 +61,7 @@ A ship's log kept on your own machine: it finds the entry you half remember and 
 ## Project-specific rules
 
 - **Violet signal** matches the app's own violet accent, so the screenshots and the page read as one product.
-- The wordmark is plain `logbook` in JetBrains Mono 700. The favicon is the app's own icon (`src-tauri/app-icon.svg`).
+- The wordmark is plain `logbook` in JetBrains Mono 700. The favicon is the app's own icon (`app/app-icon.svg`).
 - The app's UI keeps its own theme (`ui/src/theme.css`); only this site follows the brand.
 - **Mono means a literal.** JetBrains Mono is for things you could type or find on disk: commands, keys,
   file names, the version. Never for labels or decoration, so there is no eyebrow above the headline.

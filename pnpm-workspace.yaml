@@ -1,5 +1,4 @@
 packages:
-  - ui
   - site
   - tools/screenshots
 catalog:

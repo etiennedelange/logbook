@@ -9,7 +9,7 @@
  *
  * 1. Checks: no uncommitted changes to tracked files, gh signed in, the version is new, and the
  *    CHANGELOG has entries under [Unreleased].
- * 2. Branch release/<version> from origin/main: version.mjs sets all seven version fields, the
+ * 2. Branch release/<version> from origin/main: version.mjs sets all six version fields, the
  *    [Unreleased] entries get a dated [version] heading; commit "Release <version>", push.
  * 3. PR "Release <version>" (label skip-changelog), squash auto-merge once CI is green.
  * 4. Follows the PR's CI run (`gh run watch`), waits for the merge, tags the merge commit
