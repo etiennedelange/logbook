@@ -1,7 +1,7 @@
 {
   "name": "logbook",
   "private": true,
-  "version": "0.6.5",
+  "version": "0.6.6",
   "scripts": {
     "tauri": "tauri",
     "screenshots": "node tools/screenshots/capture.mjs",

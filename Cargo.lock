@@ -3708,7 +3708,7 @@ dependencies = [
 
 [[package]]
 name = "logbook"
-version = "0.6.5"
+version = "0.6.6"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -3727,7 +3727,7 @@ dependencies = [
 
 [[package]]
 name = "logbook-core"
-version = "0.6.5"
+version = "0.6.6"
 dependencies = [
  "anyhow",
  "chrono",
