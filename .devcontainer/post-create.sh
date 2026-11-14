@@ -14,6 +14,7 @@ sudo apt-get install -y \
 	libxkbcommon-x11-dev \
 	libxcb1-dev \
 	libfreetype-dev \
+	libfontconfig-dev \
 	pkg-config \
 	mesa-vulkan-drivers \
 	libvulkan1 \

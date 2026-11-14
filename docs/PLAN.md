@@ -168,31 +168,31 @@ Tests: fixture lines for each edit tool in `core/tests/fixtures/claude/`; `pnpm 
 file rows and both searches; mock data with files; new screenshot scenes (Files tab, file diff). An e2e step
 for path and ID search.
 
-## Experiment: a GPUI front end
+## GPUI is the app
 
-**Started 2026-11-13.** `gpui-proto/`: Logbook in GPUI (via [gpui-kit](https://crates.io/crates/gpui-kit) 0.9.1) calling
-`SessionService` directly, no IPC. It answers one question: is it meaningfully lighter and faster than the WebView2 build, with
-the same screens? The Tauri/React app stays the shipping UI either way.
+**Decided 2026-11-14, built the same day.** The app is Rust all the way down: `app/` draws everything with
+[GPUI](https://www.gpui.rs) (via [gpui-kit](https://crates.io/crates/gpui-kit)) and calls `SessionService` directly, with no webview and
+no IPC. It began as an experiment (`gpui-proto/`, 2026-11-13) with one question, whether it is lighter and faster than the WebView2 build
+with the same screens. On a real Windows history it ran well and used less memory, so the Tauri shell and the React UI were removed.
 
-Built (2026-11-13): the whole app, following the web UI screen by screen: sidebar (ranges, agents, repositories, Sources,
-rail), the day-grouped list with search, the detail pane (facts, tabs, markdown transcript with search marks, folding and a pinned
-prompt, Files and diffs, the resume dock), Stats, About, What's New, notices, zoom, both themes, the custom title bar. See
-`gpui-proto/README.md` for what differs (no in-app update install, no Stats entrance animations, no roving focus rings).
-Run it with `cargo run --release --manifest-path gpui-proto/Cargo.toml` (its own workspace and lockfile, so GPUI stays out of the app's `Cargo.lock`).
-The `gpui-proto` workflow builds the Windows exe on every push that touches it (Actions → run → Artifacts).
+What the move kept and replaced (details in `docs/RELEASING.md` and the README):
+- **Same screens and look**: the sidebar, list, detail pane, Stats, About, What's New, both themes, zoom, the keyboard, the fonts and
+  colour tokens. `app/README.md` lists what is left out (Stats entrance animations, roving focus rings).
+- **Updates**: the same `latest.json` and minisign key, checked by `app/src/update.rs` and installed with the arguments Tauri's updater used,
+  so 0.6.x installs update in place. The NSIS installer is still made by the Tauri CLI's bundler (`app/tauri.conf.json`), only as a
+  packaging tool: it reads the built exe, and the installer no longer needs WebView2.
+- **Tests**: `ui-check` and the WebView2 e2e became the headless UI tests in `app/src/tests.rs` (real clicks and keys against a fixture
+  history). Screenshots come from the real app in a virtual display (`tools/screenshots/`).
+- **Added**: single instance, the window's size and place remembered, the exe's icon and version info.
 
-Measured so far:
-- Windows, 915 real sessions, Task Manager "Memory", idle (2026-11-13, the list and transcript prototype): GPUI 125 MB; Logbook 249 MB
-  (94.6 MB host + 153.4 MB WebView2 Manager).
-- Linux, release build, 10,000 synthetic sessions (154 MB of transcripts): cold index 447 ms; warm start to a full list 22 ms;
-  idle re-scan 51 ms; a search keystroke that matches nearly everything 20–35 ms end to end; a transcript loads in about 1 ms.
-  Idle CPU is zero. (Memory there isn't comparable: a software-rendered GPU inflates it.)
-- Not yet measured on Windows with the full app: memory, cold start, scrolling, text selection and copy.
+Measured:
+- Windows, 915 real sessions, Task Manager "Memory", idle (the list and transcript prototype): GPUI 125 MB; Logbook 249 MB (94.6 MB host +
+  153.4 MB WebView2 Manager). The full app was reported lighter too.
+- Linux, release build, 10,000 synthetic sessions (154 MB of transcripts): cold index 447 ms; warm start to a full list 22 ms; idle re-scan 51 ms;
+  a search keystroke that matches nearly everything 20-35 ms end to end; a transcript loads in about 1 ms; idle CPU is zero.
 
-Continue only if, on a real history, idle memory is under about half of the WebView2 build's (sum the `msedgewebview2`
-processes), cold start to a usable list is no slower, keystroke-to-results is no slower, and a 5k-message transcript
-scrolls smoothly with selection and copy working. Stop if it won't build or render on Windows, text selection or IME is
-unusable, or the memory saving is under about 30%.
+Still to check on a real install: updating a 0.6.x copy to the first GPUI release (CI builds an unsigned installer on every run, which can be
+installed over a released Logbook to try the in-place upgrade before releasing).
 
 ## Later, on request
 

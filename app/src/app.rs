@@ -342,7 +342,10 @@ impl Logbook {
             fact_held: false,
             fact_at: Instant::now(),
             last_scan: Instant::now(),
-            update_next: Some(Instant::now() + UPDATE_CHECK_DELAY),
+            // LOGBOOK_NO_UPDATE_CHECK=1 never looks: for screenshots and tests, which must not depend on the network.
+            update_next: std::env::var_os("LOGBOOK_NO_UPDATE_CHECK")
+                .is_none()
+                .then(|| Instant::now() + UPDATE_CHECK_DELAY),
             repos_scroll: ScrollHandle::new(),
             stats_scroll: ScrollHandle::new(),
             about_scroll: ScrollHandle::new(),
@@ -717,7 +720,9 @@ impl Logbook {
         // Found by a file it changed: open on that file's tab.
         let by_file =
             self.hits.as_ref().and_then(|h| h.iter().find(|h| h.id == id)).is_some_and(|h| h.matched == "file");
-        let tab = if by_file { Tab::Files } else { Tab::Transcript };
+        // LOGBOOK_DEV_TAB=files opens every session on its Files tab (for the screenshot tool).
+        let dev_files = std::env::var("LOGBOOK_DEV_TAB").is_ok_and(|t| t == "files");
+        let tab = if by_file || dev_files { Tab::Files } else { Tab::Transcript };
         self.sel_id = Some(id.to_string());
         self.detail = Some(Detail::new(id.to_string()));
         self.rebuild_detail(true);
@@ -811,6 +816,17 @@ impl Logbook {
                 }
                 this.rebuild_detail(false);
                 cx.notify();
+                // LOGBOOK_DEV_FILE=<path> goes on to that file's edits (for the screenshot tool).
+                if let Ok(path) = std::env::var("LOGBOOK_DEV_FILE") {
+                    if this
+                        .detail
+                        .as_ref()
+                        .and_then(|d| d.files.as_ref())
+                        .is_some_and(|f| f.files.iter().any(|x| x.path == path))
+                    {
+                        this.open_file(Some(path), cx);
+                    }
+                }
             })
             .ok();
         })
@@ -1068,7 +1084,7 @@ impl Logbook {
 
     pub fn set_zoom(&mut self, z: f32, window: &mut Window, cx: &mut Context<Self>) {
         self.zoom = platform::clamp_zoom(z);
-        window.set_rem_size(px(16.0 * self.zoom));
+        self.apply_rem(window);
         // Row heights change with the rem size.
         self.list.remeasure();
         if let Some(d) = &self.detail {
@@ -1076,6 +1092,12 @@ impl Logbook {
         }
         self.save_settings();
         cx.notify();
+    }
+
+    /// Hands the window the rem size the zoom calls for. Every frame, not once: the window puts its own default
+    /// back (as it opens, and as it is resized), and this is a plain setter.
+    pub fn apply_rem(&mut self, window: &mut Window) {
+        window.set_rem_size(px(16.0 * self.zoom));
     }
 
     fn save_settings(&mut self) {

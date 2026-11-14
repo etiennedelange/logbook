@@ -2,8 +2,8 @@
 
 A logbook for your coding-agent sessions from the GitHub Copilot CLI and Claude Code: search,
 browse and resume them from a desktop app.
-Built with Tauri 2 (Rust) and React, laid out like
-[DevFlow](../ado-hooks): sidebar, list, detail.
+A native Windows app written entirely in Rust, drawn with [GPUI](https://www.gpui.rs) (Zed's UI framework): no
+webview. Laid out like [DevFlow](../ado-hooks): sidebar, list, detail.
 
 ![Logbook showing a session transcript](docs/screenshots/browse-dark.webp)
 
@@ -28,7 +28,7 @@ Built with Tauri 2 (Rust) and React, laid out like
   keeps its own copy of every conversation it has read, so those sessions stay searchable and
   readable, marked "source deleted". They can't be resumed.
 - **Updates**: when a new release is out, **Update** appears in the toolbar. **What's New** shows
-  its release notes, and **Update now** installs it and restarts.
+  its release notes, and **Update now** downloads it, checks its signature, installs it and restarts.
 
 ![The Files tab: the files a Claude Code session created and edited](docs/screenshots/files-dark.webp)
 
@@ -43,47 +43,41 @@ Windows installers are on the [releases page](https://github.com/etiennedelange/
 
 ### Layout
 
-| Path         | What                                                                                      |
-|--------------|-------------------------------------------------------------------------------------------|
-| `core/`      | Indexing and search engine (`logbook_core` lib) and `SessionService`                      |
-| `src-tauri/` | Tauri shell: commands the UI calls, background indexing, single instance                  |
-| `ui/`        | React 19 + TypeScript + Tailwind 4 + zustand, built with [Vite+](https://viteplus.dev)    |
-| `site/`      | Marketing site: Astro, static, deployed to Cloudflare Workers (static assets)            |
-| `tools/`     | `screenshots/` (Playwright, mock data) and `release/` (version sync)                      |
+| Path       | What                                                                                                    |
+|------------|---------------------------------------------------------------------------------------------------------|
+| `core/`    | Indexing and search engine (`logbook_core` lib) and `SessionService`                                    |
+| `app/`     | The app: GPUI views and state (`src/`), and a plain-data library (`logbook_app`: the filters, formatting, stats, transcript and update logic) with its tests. `tauri.conf.json` only configures the installer maker |
+| `site/`    | Marketing site: Astro, static, deployed to Cloudflare Workers (static assets)                          |
+| `tools/`   | `release/` (version sync, release notes, `latest.json`), `screenshots/` (README and site images)       |
 
 ### Running
 
-Requires Rust (stable), Node and pnpm. No Docker or server needed.
+Requires Rust (stable). On Linux, GPUI also needs `libxkbcommon-dev libxkbcommon-x11-dev libxcb1-dev libfreetype-dev libfontconfig-dev`
+(and a Vulkan driver to open a window); the dev container installs them. No Docker or server needed.
 
 ```bash
-pnpm install
-pnpm tauri dev      # dev window with hot reload
-pnpm tauri build --config src-tauri/tauri.no-updater.conf.json   # installer, without the updater signing key
+cargo run -p logbook             # the app; `--release` for a build to judge speed
+cargo test --workspace           # the engine, the plain-data library, and the headless UI tests
 ```
 
-Work on the UI alone, in a browser, against fake data:
+`app/src/tests.rs` drives the real views in a headless window (real clicks and keys, a temporary history of Copilot CLI
+and Claude Code sessions). Try the app on made-up sessions instead of your own:
 
 ```bash
-pnpm mock:web      # same as: pnpm --dir ui dev:mock
+app/tools/make-fixtures.py /tmp/lb small      # or `big 10000` for timing
+COPILOT_HOME=/tmp/lb/copilot CLAUDE_CONFIG_DIR=/tmp/lb/claude LOGBOOK_CACHE_DIR=/tmp/lb/cache cargo run -p logbook
 ```
 
-Screenshots (real UI, fake sessions, light and dark; one-time `pnpm --dir tools/screenshots exec playwright install chromium`):
+`LOGBOOK_TRACE=1` prints how long loading, filtering, searching and reading a transcript take; `LOGBOOK_DEV_UPDATE=1` shows
+the update pill and What's New. `app/tools/drive.sh` runs the app in a virtual display, clicks and types, and takes
+screenshots (Linux; needs Xvfb, xdotool and ImageMagick).
 
-```bash
-pnpm screenshots            # every scene; the published ones land in docs/screenshots/
-pnpm screenshots search     # one scene
-pnpm --dir site dev         # the marketing site
-```
+The Windows installer is made by the Tauri CLI's bundler from the built exe (`docs/RELEASING.md`); CI builds an unsigned one
+on every run (Actions → CI → Artifacts), which can be installed over a released Logbook to try the update path.
 
-Releasing is a version bump and a tag: see [docs/RELEASING.md](docs/RELEASING.md).
+Screenshots (the real app, made-up sessions, light and dark): `pnpm screenshots`, see `tools/screenshots/capture.mjs`.
 
-Checks:
-
-```bash
-cargo test                 # core tests
-pnpm --dir ui check        # Vite+: format, lint, types
-pnpm --dir ui test         # UI tests
-```
+The marketing site: `pnpm --dir site dev`.
 
 Optional environment variables (handy for testing against other data):
 
@@ -91,7 +85,11 @@ Optional environment variables (handy for testing against other data):
 |---------------------|-------------------|-------------------------------------------------|
 | `COPILOT_HOME`      | `~/.copilot`      | Root of the Copilot CLI's session data          |
 | `CLAUDE_CONFIG_DIR` | `~/.claude`       | Root of Claude Code's data (`projects/` is read) |
-| `LOGBOOK_CACHE_DIR` | OS local data dir | Where this app's own `index-v6.bin` cache lives |
+| `LOGBOOK_CACHE_DIR` | OS local data dir | Where this app's own `index-v6.bin` cache and settings live |
 
 The app never reads `~/.copilot/session-store.db`; that SQLite file belongs to the
 Copilot CLI itself. It never writes to either agent's folder.
+
+### Releasing
+
+A version bump and a tag: see [docs/RELEASING.md](docs/RELEASING.md).

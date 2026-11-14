@@ -6,6 +6,12 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **Logbook is now a native app.** It's rewritten in Rust and drawn with GPUI instead of a web view, so it
+  uses less memory and doesn't need WebView2. It looks and works the same: the same screens, shortcuts,
+  themes and zoom. Installed copies update to it in place, with the same **Update now**, and the window
+  remembers its size and place between runs.
+
 ## [0.6.5] - 2026-11-13
 
 ### Changed

@@ -144,6 +144,7 @@ impl Logbook {
 
 impl Render for Logbook {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.apply_rem(window);
         let p = self.pal;
         // Layout runs in the web UI's CSS pixels: the window's size divided by the zoom.
         let vw = f32::from(window.viewport_size().width) / self.zoom.max(0.1);
