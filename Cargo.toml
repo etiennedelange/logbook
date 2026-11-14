@@ -1,9 +1,12 @@
 [workspace]
 resolver = "2"
-members = ["core", "src-tauri"]
-# gpui-proto is an experiment with its own workspace and lockfile, so GPUI never touches this one.
-exclude = ["gpui-proto"]
+members = ["core", "app"]
 
 # Line tables keep file:line in backtraces but make debug builds link much faster.
 [profile.dev]
 debug = "line-tables-only"
+
+# The installer ships this build: smaller and faster, at the cost of a slower link.
+[profile.release]
+lto = "thin"
+strip = true
