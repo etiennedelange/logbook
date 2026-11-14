@@ -77,10 +77,10 @@ upsert_ruleset "main" '{
       "parameters": {
         "strict_required_status_checks_policy": false,
         "required_status_checks": [
-          { "context": "ui" },
+          { "context": "tools" },
           { "context": "rust (ubuntu-latest)" },
           { "context": "rust (windows-latest)" },
-          { "context": "ui-windows" }
+          { "context": "installer" }
         ]
       }
     }
