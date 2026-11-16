@@ -325,8 +325,6 @@ impl Logbook {
                     .flex_none()
                     .items_center()
                     .h(u(HEADER_H))
-                    .border_b_1()
-                    .border_color(p.line)
                     // Nothing to read here: the bar only moves the window.
                     .child(drag_region(div().id("brand")).flex_1().h_full()),
             )

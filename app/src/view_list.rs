@@ -127,13 +127,17 @@ impl Logbook {
             .bg(p.list)
             .border_r_1()
             .border_color(p.line)
-            .child(self.pane_header(
-                "list-title",
-                String::new(),
-                16.,
-                16.,
-                header_end.map(IntoElement::into_any_element).unwrap_or_else(|| div().into_any_element()),
-            ))
+            .child(
+                self.pane_header(
+                    "list-title",
+                    String::new(),
+                    16.,
+                    16.,
+                    header_end.map(IntoElement::into_any_element).unwrap_or_else(|| div().into_any_element()),
+                )
+                // The sidebar and the list have no title now, so no rule under them either.
+                .border_color(gpui_kit::transparent_black()),
+            )
             .child(div().flex_none().px(u(12.)).pb(u(6.)).pt(u(12.)).child(search).when(!sub.is_empty(), |d| {
                 d.child(div().mt(u(8.)).px(u(4.)).truncate().text_size(u(12.)).text_color(p.mute).child(sub))
             }))
