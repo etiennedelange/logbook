@@ -6,6 +6,10 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **A lighter title bar.** The sidebar header shows just the Logbook icon instead of the wordmark, and pane
+  titles are medium weight rather than bold, so the top row feels less squished.
+
 ## [0.6.6] - 2026-11-14
 
 ### Changed

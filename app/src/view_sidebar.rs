@@ -321,19 +321,13 @@ impl Logbook {
                     .items_center()
                     .gap(u(9.))
                     .h(u(HEADER_H))
+                    .border_b_1()
+                    .border_color(p.line)
                     .when(rail, |d| d.justify_center())
                     .when(!rail, |d| d.px(u(18.)))
-                    .child(icon("logbook", 19., p.accent_text))
-                    .when(!rail, |d| {
-                        d.child(
-                            drag_region(div().id("brand"))
-                                .flex_1()
-                                .h_full()
-                                .flex()
-                                .items_center()
-                                .child(div().text_size(u(15.)).font_weight(SEMIBOLD).child("logbook")),
-                        )
-                    }),
+                    .child(icon("logbook", 18., p.accent_text))
+                    // The icon is the brand; the rest of the bar just moves the window.
+                    .when(!rail, |d| d.child(drag_region(div().id("brand")).flex_1().h_full())),
             )
             .child(ranges)
             .children(agents)

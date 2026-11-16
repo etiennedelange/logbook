@@ -44,7 +44,7 @@ impl Logbook {
             .border_b_1()
             .border_color(p.line)
             .child(drag_region(div().id(id)).flex_1().min_w_0().h_full().flex().items_center().child(
-                div().truncate().text_size(u(14.)).font_weight(SEMIBOLD).line_height(relative(1.2)).child(title),
+                div().truncate().text_size(u(14.)).font_weight(MEDIUM).line_height(relative(1.2)).child(title),
             ))
             .child(end)
     }
