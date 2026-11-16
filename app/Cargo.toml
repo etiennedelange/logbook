@@ -23,7 +23,7 @@ serde_json = "1"
 # The update check and download, and checking the installer's minisign signature (what Tauri's updater did).
 ureq = "3"
 minisign-verify = "0.2"
-base64 = "0.22"
+base64 = "0.23"
 
 [dev-dependencies]
 # GPUI's own headless test support (src/tests.rs): real clicks and keys against the real views. Named `gpui`
