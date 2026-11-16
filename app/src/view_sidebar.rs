@@ -105,10 +105,11 @@ impl Logbook {
                         .when(rail, |d| d.justify_center().py(u(9.)))
                         .when(!rail, |d| d.px(u(10.)).py(u(6.)))
                         .text_size(u(13.))
-                        .text_color(if on { p.ink } else { p.soft })
-                        .bg(if on { p.btn } else { gpui_kit::transparent_black() })
+                        .font_weight(if on { SEMIBOLD } else { MEDIUM })
+                        .text_color(if on { p.ink } else { p.mute })
+                        .bg(if on { p.side_sel } else { gpui_kit::transparent_black() })
                         .cursor_pointer()
-                        .when(!on, |d| d.hover(move |s| s.bg(p.hover)))
+                        .when(!on, |d| d.hover(move |s| s.bg(p.side_hover).text_color(p.soft)))
                         .tooltip_text(match hotkey {
                             Some(h) => format!("{} ({h})", info.name),
                             None => info.name.to_string(),
@@ -121,7 +122,11 @@ impl Logbook {
                         .when(!rail, |d| d.child(div().flex_1().min_w_0().truncate().child(info.name)))
                         .when(!rail, |d| {
                             d.child(
-                                div().font_family(MONO).text_size(u(11.)).text_color(p.mute).child(count.to_string()),
+                                div()
+                                    .font_family(MONO)
+                                    .text_size(u(11.))
+                                    .text_color(if on { p.soft } else { p.mute })
+                                    .child(count.to_string()),
                             )
                         }),
                 );
@@ -319,15 +324,11 @@ impl Logbook {
                     .flex()
                     .flex_none()
                     .items_center()
-                    .gap(u(9.))
                     .h(u(HEADER_H))
                     .border_b_1()
                     .border_color(p.line)
-                    .when(rail, |d| d.justify_center())
-                    .when(!rail, |d| d.px(u(18.)))
-                    .child(icon("logbook", 18., p.accent_text))
-                    // The icon is the brand; the rest of the bar just moves the window.
-                    .when(!rail, |d| d.child(drag_region(div().id("brand")).flex_1().h_full())),
+                    // Nothing to read here: the bar only moves the window.
+                    .child(drag_region(div().id("brand")).flex_1().h_full()),
             )
             .child(ranges)
             .children(agents)

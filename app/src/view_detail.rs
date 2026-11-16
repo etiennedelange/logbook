@@ -10,7 +10,7 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 use logbook_app::diff::DiffItem;
 use logbook_app::model::agents::agent_info;
-use logbook_app::model::format::{self, clock, date_only, date_time, highlight_words, plural, short_repo};
+use logbook_app::model::format::{self, clock, date_only, date_time, highlight_words, plural};
 use logbook_app::model::Session;
 use logbook_app::transcript::{self, folded};
 /// The reading column's width.
@@ -82,21 +82,11 @@ impl Logbook {
     pub fn detail_pane(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = self.pal;
         let wide = window.viewport_size().width / self.zoom.max(0.1) >= px(1400.);
-        let end = self.header_end(None, wide, window, cx);
+        let end = self.header_end(wide, window, cx);
         let Some(detail) = &self.detail else { return self.nothing_selected(end, p, cx).into_any_element() };
         let Some(session) = self.by_id.get(&detail.id).cloned() else {
             return self.nothing_selected(end, p, cx).into_any_element();
         };
-
-        let title = session.title.text.clone();
-        let where_ = session
-            .branch
-            .clone()
-            .or_else(|| session.repo.as_deref().map(|r| short_repo(r).to_string()))
-            .unwrap_or_default();
-        let pill_title =
-            [session.repo.clone(), session.branch.clone()].into_iter().flatten().collect::<Vec<_>>().join(" · ");
-        let end = self.header_end(Some((where_, pill_title)), wide, window, cx);
 
         // The latest of your messages that has scrolled out of view, pinned above the replies to it.
         let pinned = match (&detail.messages, detail.tab) {
@@ -118,7 +108,7 @@ impl Logbook {
             .size_full()
             .min_w_0()
             .min_h_0()
-            .child(self.pane_header("detail-title", title, 20., 12., end))
+            .child(self.pane_header("detail-title", String::new(), 20., 12., end))
             .child(
                 div()
                     .relative()
@@ -132,40 +122,15 @@ impl Logbook {
             .into_any_element()
     }
 
-    /// The header's right end: the branch pill, the update pill, About and the window controls.
-    pub fn header_end(
-        &self,
-        pill: Option<(String, String)>,
-        wide: bool,
-        window: &Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    /// The header's right end: the update pill, About and the window controls.
+    pub fn header_end(&self, wide: bool, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let p = self.pal;
-        // 40% of the detail pane, as an absolute width: a percentage here would resolve against this
-        // shrink-wrapped box, which a long branch name widens, leaving a gap after the window buttons.
-        let max_pill = self.detail_width(window) * 0.4;
         div()
             .flex()
             .flex_none()
             .items_center()
             .gap(u(8.))
             .self_stretch()
-            .children(pill.filter(|(w, _)| !w.is_empty()).map(|(w, t)| {
-                div()
-                    .id("branch-pill")
-                    .max_w(u(max_pill))
-                    .flex_none()
-                    .truncate()
-                    .rounded_full()
-                    .bg(p.raised)
-                    .px(u(10.))
-                    .py(u(2.))
-                    .font_family(MONO)
-                    .text_size(u(11.))
-                    .text_color(p.soft)
-                    .tooltip_text(t)
-                    .child(w)
-            }))
             .children(self.update_pill(wide, cx))
             .child(
                 icon_button("about", "help", 15., 28., p, p.btn)
@@ -173,13 +138,6 @@ impl Logbook {
                     .on_click(cx.listener(|this, _, _, cx| this.set_about(true, cx))),
             )
             .child(self.window_controls(window))
-    }
-
-    /// The detail pane's width in CSS pixels: what is left of the window after the sidebar and the list.
-    fn detail_width(&self, window: &Window) -> f32 {
-        let vw = f32::from(window.viewport_size().width) / self.zoom.max(0.1);
-        let avail = vw - if vw < crate::view_sidebar::RAIL_BELOW { 56.0 } else { 220.0 };
-        avail - (avail * 0.4).max(300.0)
     }
 
     /// In the toolbar once GitHub has a newer release; opens What's New. Nothing shows otherwise.
@@ -237,7 +195,7 @@ impl Logbook {
             .flex()
             .flex_col()
             .size_full()
-            .child(self.pane_header("detail-title", "No session selected".into(), 20., 12., end))
+            .child(self.pane_header("detail-title", String::new(), 20., 12., end))
             .child(
                 div().flex().flex_1().items_center().justify_center().px(u(32.)).child(
                     div()
@@ -426,6 +384,14 @@ impl Logbook {
             .border_color(p.line)
             .px(u(20.))
             .py(u(16.))
+            .child(
+                div()
+                    .text_size(u(17.))
+                    .font_weight(MEDIUM)
+                    .line_height(relative(1.3))
+                    .text_color(p.ink)
+                    .child(s.title.text.clone()),
+            )
             .child(div().flex().flex_wrap().gap_x(u(40.)).gap_y(u(12.)).children(top.into_iter().map(
                 |(label, value)| {
                     div()

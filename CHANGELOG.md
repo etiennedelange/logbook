@@ -6,6 +6,11 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **A quieter top bar.** The session title now heads the session itself instead of the title bar, and the
+  branch pill, the list's title and the sidebar's icon are gone (the list still shows the repo and branch on
+  each row). The selected agent in the sidebar is easier to spot.
+
 ## [0.6.7] - 2026-11-16
 
 ### Changed
