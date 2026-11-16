@@ -50,7 +50,7 @@ impl Logbook {
         let p = self.pal;
         let wide = window.viewport_size().width / self.zoom.max(0.1) >= px(1400.);
         let two_cols = window.viewport_size().width / self.zoom.max(0.1) < px(1100.);
-        let end = self.header_end(None, wide, window, cx);
+        let end = self.header_end(wide, window, cx);
         let stats = self.stats();
         let stats = &*stats;
         let days = PERIODS.iter().find(|x| x.key == self.stats_period).unwrap();

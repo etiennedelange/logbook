@@ -15,10 +15,6 @@ impl Logbook {
         let p = self.pal;
         let range_label = range_label(self.range);
         let agent_name = self.agent.map(|a| agent_info(a).name);
-        let title = match &self.repo {
-            Some(r) => short_repo(r).to_string(),
-            None => agent_name.unwrap_or(range_label).to_string(),
-        };
         // The counts describe the results on screen, which trail the search box while a search runs.
         let q = if self.hits.is_some() { self.hits_query.trim().to_string() } else { String::new() };
         let n = self.rows.len();
@@ -27,7 +23,8 @@ impl Logbook {
         } else {
             format!("{} for “{q}”", plural(n, "match", "matches"))
         }];
-        if self.repo.is_some() {
+        if let Some(r) = &self.repo {
+            sub.push(short_repo(r).to_string());
             if let Some(a) = agent_name {
                 sub.push(a.to_string());
             }
@@ -132,7 +129,7 @@ impl Logbook {
             .border_color(p.line)
             .child(self.pane_header(
                 "list-title",
-                title,
+                String::new(),
                 16.,
                 16.,
                 header_end.map(IntoElement::into_any_element).unwrap_or_else(|| div().into_any_element()),
