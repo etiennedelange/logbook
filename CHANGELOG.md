@@ -6,6 +6,9 @@ format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Copilot CLI sessions show their attached files.** The files a session keeps in its `files/` folder (notes, scripts, reports) now appear on the Files tab, and each opens as a diff of its contents.
+
 ## [0.6.8] - 2026-11-16
 
 ### Changed
