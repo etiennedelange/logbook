@@ -182,3 +182,37 @@ fn missing_sessions_folder_keeps_cached_sessions() {
 
     std::fs::remove_dir_all(&root).ok();
 }
+
+#[test]
+fn copilot_session_files_folder_shows_on_files_tab() {
+    let _guard = ENV_GUARD.lock().unwrap();
+    let root = unique_temp_dir("session-files");
+    let service = bootstrap_in(&root);
+    let files = root.join("session-state").join("sess-1").join("files");
+    std::fs::create_dir_all(files.join("sub")).unwrap();
+    std::fs::write(files.join("notes.md"), "# Rollout
+step one
+").unwrap();
+    std::fs::write(files.join("sub").join("run.ps1"), "Write-Host hi").unwrap();
+    std::fs::write(files.join("blob.bin"), [0xff, 0xfe, 0x00]).unwrap();
+    service.rebuild().unwrap();
+
+    let listed = service.files("copilot:sess-1").unwrap().files;
+    let got: Vec<(&str, u32, bool)> = listed.iter().map(|f| (f.path.as_str(), f.added, f.created)).collect();
+    assert_eq!(
+        got,
+        vec![("files/blob.bin", 0, true), ("files/notes.md", 2, true), ("files/sub/run.ps1", 1, true)]
+    );
+
+    let edits = service.file_edits("copilot:sess-1", "files/notes.md").unwrap();
+    assert_eq!(edits.len(), 1);
+    assert!(edits[0].created);
+    assert_eq!(edits[0].hunks[0].lines, vec!["+# Rollout", "+step one"]);
+    assert!(service.file_edits("copilot:sess-1", "files/../workspace.yaml").unwrap().is_empty());
+
+    std::fs::write(files.join("later.txt"), "hello").unwrap();
+    service.rebuild().unwrap();
+    assert_eq!(service.files("copilot:sess-1").unwrap().files.len(), 4);
+
+    std::fs::remove_dir_all(&root).ok();
+}
